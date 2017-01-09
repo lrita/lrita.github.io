@@ -2,7 +2,7 @@
 layout: post
 title:  LevelDB源码分析-1-varint
 date:   2016-12-29 20:00:11
-category: "LevelDB"
+category: "leveldb"
 ---
 
 为了节省空间，LevelDB作者设计了一种变长编码方式来表示整型：`varint`。越小的数字所用的字节数越少。
