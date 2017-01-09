@@ -7,7 +7,7 @@ category: "leveldb"
 
 ## MemTable
 
-    在讲memtable之前，有必要先讲讲leveldb模型，当向leveldb写入数据时，首先将数据写入log文件，
+  在讲memtable之前，有必要先讲讲leveldb模型，当向leveldb写入数据时，首先将数据写入log文件，
   然后在写入memtable内存中。log文件主要是用在当断电时，内存中数据会丢失，数据可以从log文件中
   恢复。当memtable数据达到一定大小即（`options.write_buffer_size`大小，默认`4<<20`)，会变为
   immemtable，然后log文件也生成一个新的log文件。immemtable数据将会被持久化到磁盘中。模型图如下：
