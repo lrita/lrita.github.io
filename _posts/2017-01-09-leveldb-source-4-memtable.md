@@ -6,6 +6,7 @@ category: "leveldb"
 ---
 
 # MemTable
+
     在讲memtable之前，有必要先讲讲leveldb模型，当向leveldb写入数据时，首先将数据写入log文件，
   然后在写入memtable内存中。log文件主要是用在当断电时，内存中数据会丢失，数据可以从log文件中
   恢复。当memtable数据达到一定大小即（`options.write_buffer_size`大小，默认`4<<20`)，会变为
@@ -14,6 +15,7 @@ category: "leveldb"
   [!memtable](/images/posts/leveldb/leveldb-memtable.jpg)
 
 ## MemTable实现
+
   `MemTable`的实现为非线程安全的。
   `MemTable`是基于引用计数的，每次使用需要首先调用`Ref()`，使用完毕时调用`Unref()`。
 
@@ -33,5 +35,6 @@ category: "leveldb"
 * `NewIterator`返回一个iteration，遍历`SkipList`。
 
 ## 源码分析
+
   [memtable.h](https://github.com/lrita/leveldb/blob/master/db/memtable.h)
   [memtable.cc](https://github.com/lrita/leveldb/blob/master/db/memtable.cc)
