@@ -5,7 +5,7 @@ date:   2017-01-09 20:00:11
 category: "leveldb"
 ---
 
-# MemTable
+## MemTable
 
     在讲memtable之前，有必要先讲讲leveldb模型，当向leveldb写入数据时，首先将数据写入log文件，
   然后在写入memtable内存中。log文件主要是用在当断电时，内存中数据会丢失，数据可以从log文件中
