@@ -12,7 +12,7 @@ category: "leveldb"
   恢复。当memtable数据达到一定大小即（`options.write_buffer_size`大小，默认`4<<20`)，会变为
   immemtable，然后log文件也生成一个新的log文件。immemtable数据将会被持久化到磁盘中。模型图如下：
 
-  [!memtable](/images/posts/leveldb/leveldb-memtable.jpg)
+  ![memtable](/images/posts/leveldb/leveldb-memtable.jpg)
 
 ## MemTable实现
 
@@ -23,9 +23,10 @@ category: "leveldb"
   `MemTable`其实有一个`SkipList`实现的。`SkipList`持有的元素为`const char *`，也是由其内存池所分配的。
   `SkipList`持有的元素的内存分布为：
 
-  ```
+```
   | n (varint,key部分内存,含sequence) | key data (n-8 bytes) | sequence (8 bytes) | m (varint,val data) | val data (m bytes) |
-  ```
+```
+
   可以看出key部分的内存结构为一个`LookupKey`的内存结构，其`Get`方法使用的key就是`LookupKey`。
 
   拥有`Add`、`Get`和`NewIterator`方法。
@@ -36,5 +37,5 @@ category: "leveldb"
 
 ## 源码分析
 
-  [memtable.h](https://github.com/lrita/leveldb/blob/master/db/memtable.h)
+  [memtable.h](https://github.com/lrita/leveldb/blob/master/db/memtable.h)<br/>
   [memtable.cc](https://github.com/lrita/leveldb/blob/master/db/memtable.cc)
