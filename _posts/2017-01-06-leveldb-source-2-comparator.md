@@ -9,6 +9,7 @@ category: "leveldb"
   Comparator 是leveldb内部对key、value进行比较排序的实现。
 
 ## 定义
+
   ```
 class Comparator {
  public:
@@ -52,6 +53,7 @@ class Comparator {
 ## 用法
   `Comparator`由`DB::Open()`时的参数`Options`传入。默认实现为`BytewiseComparator`。如果需要自定义实现，则
   继承`Comparator`自己实现一个，然后覆盖掉`Options`中的comparator即可:
+
   ```
   class TwoPartComparator : public leveldb::Comparator {
     public:
@@ -88,6 +90,7 @@ class Comparator {
 
 ## 实现
   leveldb内部comparator的默认实现为`BytewiseComparatorImpl`，即字典序的排序：
+
   ```
   Slice a, b;
   int Compare(const Slice& a, const Slice& b) {

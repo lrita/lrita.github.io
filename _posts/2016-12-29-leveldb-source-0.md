@@ -12,6 +12,7 @@ category: "leveldb"
   `leveldb`创建后，`dbname`目录下会产生一系列的小文件，由这些小文件共同存储database中的数据。
 
   总共拥有的文件名称有:
+
 ```
     dbname/CURRENT
     dbname/LOCK
@@ -22,11 +23,12 @@ category: "leveldb"
 ```
 
   不同的文件根据后缀来区分功能。
-- `LOCK` database文件锁，`leveldb`通过文件锁来避免同一个db被多次打开操作。调用`DB::Open()`时会先获取该文件锁。
-- `MANIFEST-XXXXX`，描述文件。
-- `CURRENT` 表明当前正在使用哪个`MANIFEST`文件
-- `LOG`，`LOG.old` 运行日志文件，当未指定`options.info_log`时，默认会将错误日志输出到该文件，每一次`DB::Open()`时，会将`LOG`重命名为`LOG.old`
-- `.log` 日志文件
-- `.dbtmp` 变更文件内容，中间过程中的临时文件。
+
+* `LOCK` database文件锁，`leveldb`通过文件锁来避免同一个db被多次打开操作。调用`DB::Open()`时会先获取该文件锁。
+* `MANIFEST-XXXXX`，描述文件。
+* `CURRENT` 表明当前正在使用哪个`MANIFEST`文件
+* `LOG`，`LOG.old` 运行日志文件，当未指定`options.info_log`时，默认会将错误日志输出到该文件，每一次`DB::Open()`时，会将`LOG`重命名为`LOG.old`
+* `.log` 日志文件
+* `.dbtmp` 变更文件内容，中间过程中的临时文件。
 
 ![LevelDB架构](/images/posts/leveldb/leveldb.jpg)
