@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  leveldb源码分析-2-比较器
+title:  leveldb源码分析-2-comparator
 date:   2017-01-06 20:00:00
 category: "leveldb"
 ---
