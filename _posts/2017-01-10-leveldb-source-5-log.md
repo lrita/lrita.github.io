@@ -27,6 +27,7 @@ category: "leveldb"
 ```
 
   log type有:
+
 * `kZeroType` = 0    enum 边界标识，正常情况下不应该出现
 * `kFullType` = 1    表明该log record包含了完整的user record
 *                    以下3个出现时，说明user record可能内容很多，超过了block的可用大小，就需要分成几条log record。
