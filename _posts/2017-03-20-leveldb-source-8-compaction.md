@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  leveldb源码分析-8-compaction
-date:   2016-12-29 20:00:11
+date:   2017-03-20 20:00:11
 category: "leveldb"
 ---
 
@@ -46,9 +46,9 @@ category: "leveldb"
 
 #### 常规compaction
   不满足`TrivialMove`时则采用常规compaction。调用`DBImpl::DoCompactionWork`进行常规compaction。
-  常规compaction会把之前选取到的全部文件构建一个`MergingIterator`来有序遍历这些文件中的key。将
-  `kTypeDeletion`类型的sequence最大的key的记录输出到新产生的文件中，其他的记录都被抛弃掉。从而
-  完成SSTable文件的合并，当新生成的文件大小到达阈值时，会另起一个文件。
+  常规compaction会把之前选取到的全部文件构建一个`MergingIterator`来有序遍历这些文件中的key(可能每
+  次都会遍历每个文件)。将`kTypeDeletion`类型的sequence最大的key的记录输出到新产生的文件中，其他的
+  记录都被抛弃掉。从而完成SSTable文件的合并，当新生成的文件大小到达阈值时，会另起一个文件。
 
   合并文件完成更新VersionSet中的Version信息。
 
@@ -65,4 +65,4 @@ category: "leveldb"
 
 #### 读放大
   leveldb是以文件为单位读取的，当`Get`一个已经被compaction搬移到深层次的key时，会发生多次文件的
-  读取，导致实际的磁盘读量大于用户`Get`的调用量。
+  读取，导致实际的磁盘读量大于用户`Get`的调用量。同时compaction时也会产生大量的读取操作。
