@@ -29,6 +29,9 @@ keywords: boltdb, database
 * [`node`](https://github.com/boltdb/bolt/blob/e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd/node.go#L11-L21)
 用来存储每个`Bucket`中的一部分Key-Value，每个`Bucket`中的`node`组织成一个B-TREE；
 * [`inode`](https://github.com/boltdb/bolt/blob/e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd/node.go#L597-L602)
-记录Key-Value对的数据结构，每个`node`内包含一个`inode`数组；
+记录Key-Value对的数据结构，每个`node`内包含一个`inode`数组，`inode`是K-V在内存中缓存的记录，该记录落到磁盘上
+时，记录为`leafPageElement`；
+* [`leafPageElement`](https://github.com/boltdb/bolt/blob/e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd/page.go#L110-L115)
+磁盘上记录具体Key-Value的索引；
 * [`page`](https://github.com/boltdb/bolt/blob/e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd/page.go#L30-L36)
 用户记录持久化文件中每个区域的重要信息，同时`page`分为很多种类，不同`page`存储不同的数据信息；
