@@ -30,6 +30,9 @@ go func() {
 
 此时我们可以启动进程，然后访问`http://localhost:8080/debug/pprof/`可以看到一个简单的
 页面，页面上显示:
+_注意: 以下的全部数据，包括`go tool pprof` 采集到的数据都依赖进程中的pprof采样率，默认512kb进行
+一次采样，当我们认为数据不够细致时，可以调节采样率`runtime.MemProfileRate`，但是采样率越低，进
+程运行速度越慢。_
 
 ```
 /debug/pprof/
@@ -194,4 +197,85 @@ Showing top 20 nodes out of 106 (cum >= 122316.23MB)
 值得大大优化的地方。
 
 然后我们可以输入命令`web`，其会给我们的浏览器弹出一个`.svg`图片，其会把这些累积关系画成一个拓扑图，提供给
-我们。
+我们。或者直接执行`go tool pprof -alloc_space -cum -svg http://127.0.0.1:8080/debug/pprof/heap > heap.svg`来生
+成`heap.svg`图片。
+
+下面我们取一个图片中的一个片段进行分析:
+
+![golang-memory-pprof.png](/images/posts/tools/golang-memory-pprof.png)
+
+每一个方块为pprof记录的一个函数调用栈，指向方块的箭头上的数字是记录的该栈累积分配的内存向，从方块指出的
+箭头上的数字为该函数调用的其他函数累积分配的内存。他们之间的差值可以简单理解为本函数除调用其他函数外，自
+身分配的。方块内部的数字也体现了这一点，其数字为:`(自身分配的内存 of 该函数累积分配的内存)`。
+
+
+### `--inuse/alloc_space` `--inuse/alloc_objects`区别
+通常情况下：
+* 用`--inuse_space`来分析程序常驻内存的占用情况;
+* 用`--alloc_objects`来分析内存的临时分配情况，可以提高程序的运行速度。
+
+## 优化建议
+[Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
+提供了一些常用的优化建议:
+
+### 1 将多个小对象合并成一个大的对象
+
+### 2 减少不必要的指针间接引用，多使用copy引用
+例如使用`bytes.Buffer`代替`*bytes.Buffer`，因为使用指针时，会分配2个对象来完成引用。
+
+### 3 局部变量逃逸时，将其聚合起来
+这一点理论跟1相同，核心在于减少object的分配，减少gc的压力。
+例如，以下代码
+```go
+for k, v := range m {
+	k, v := k, v   // copy for capturing by the goroutine
+	go func() {
+		// use k and v
+	}()
+}
+```
+可以修改为:
+
+```go
+for k, v := range m {
+	x := struct{ k, v string }{k, v}   // copy for capturing by the goroutine
+	go func() {
+		// use x.k and x.v
+	}()
+}
+```
+修改后，逃逸的对象变为了x，将k，v2个对象减少为1个对象。
+
+### 4 `[]byte`的预分配
+当我们比较清楚的知道`[]byte`会到底使用多少字节，我们就可以采用一个数组来预分配这段内存。
+例如:
+```go
+type X struct {
+    buf      []byte
+    bufArray [16]byte // Buf usually does not grow beyond 16 bytes.
+}
+
+func MakeX() *X {
+    x := &X{}
+    // Preinitialize buf with the backing array.
+    x.buf = x.bufArray[:0]
+    return x
+}
+```
+
+### 5 尽可能使用字节数少的类型
+当我们的一些const或者计数字段不需要太大的字节数时，我们通常可以将其声明为`int8`类型。
+
+### 6 减少不必要的指针引用
+当一个对象不包含任何指针（注意：strings，slices，maps 和chans包含隐含的指针），时，对gc的扫描影响很小。
+比如，1GB byte 的slice事实上只包含有限的几个object，不会影响垃圾收集时间。
+因此，我们可以尽可能的减少指针的引用。
+
+### 7 使用`sync.Pool`来缓存常用的对象
+
+## 参考
+[profiling-go-programs](https://blog.golang.org/profiling-go-programs)
+[Optimising Go allocations using pprof](https://www.robustperception.io/optimising-go-allocations-using-pprof/)
+[Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
+[Debugging performance issues in Go programs 翻译(貌似是机器翻译的，语义不是很通顺)](https://segmentfault.com/a/1190000000670041)
+[Golang Slices And The Case Of The Missing Memory](http://openmymind.net/Go-Slices-And-The-Case-Of-The-Missing-Memory/)
