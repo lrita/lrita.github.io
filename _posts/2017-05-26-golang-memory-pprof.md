@@ -295,8 +295,8 @@ func MakeX() *X {
 ### 7 使用`sync.Pool`来缓存常用的对象
 
 ## 参考
-[profiling-go-programs](https://blog.golang.org/profiling-go-programs)
-[Optimising Go allocations using pprof](https://www.robustperception.io/optimising-go-allocations-using-pprof/)
-[Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
-[Debugging performance issues in Go programs 翻译(貌似是机器翻译的，语义不是很通顺)](https://segmentfault.com/a/1190000000670041)
-[Golang Slices And The Case Of The Missing Memory](http://openmymind.net/Go-Slices-And-The-Case-Of-The-Missing-Memory/)
+* [profiling-go-programs](https://blog.golang.org/profiling-go-programs)
+* [Optimising Go allocations using pprof](https://www.robustperception.io/optimising-go-allocations-using-pprof/)
+* [Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
+* [Debugging performance issues in Go programs 翻译(貌似是机器翻译的，语义不是很通顺)](https://segmentfault.com/a/1190000000670041)
+* [Golang Slices And The Case Of The Missing Memory](http://openmymind.net/Go-Slices-And-The-Case-Of-The-Missing-Memory/)
