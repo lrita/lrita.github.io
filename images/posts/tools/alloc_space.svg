@@ -1,0 +1,1503 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="594" onload="init(evt)" viewBox="0 0 1200 594" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#e0e0ff" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+				return a - b;
+			if (a < b || a > b)
+				return a - b;
+			return matches[b] - matches[a];
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="594.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10.00" y="577" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="1090.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="1090.00" y="577" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.makemap (17,219,979,028 samples, 0.03%)</title><rect x="30.3" y="449" width="0.3" height="15.0" fill="rgb(0,197,172)" rx="2" ry="2" />
+<text text-anchor="" x="33.31" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.easyjson6615c02eEncodeGitIntraWeiboComPlatformVintageConfig (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="177" width="11.8" height="15.0" fill="rgb(0,190,168)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (5,763,585,928 samples, 0.01%)</title><rect x="30.2" y="417" width="0.1" height="15.0" fill="rgb(0,230,140)" rx="2" ry="2" />
+<text text-anchor="" x="33.21" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*Status).UnmarshalJSON (109,789,866,337 samples, 0.17%)</title><rect x="1070.0" y="161" width="2.0" height="15.0" fill="rgb(0,216,189)" rx="2" ry="2" />
+<text text-anchor="" x="1073.03" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/auth.Auth (11,558,629,616 samples, 0.02%)</title><rect x="1187.4" y="353" width="0.3" height="15.0" fill="rgb(0,227,116)" rx="2" ry="2" />
+<text text-anchor="" x="1190.44" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*DataType).UnmarshalJSON (349,093,351,903 samples, 0.54%)</title><rect x="1067.9" y="193" width="6.4" height="15.0" fill="rgb(0,218,18)" rx="2" ry="2" />
+<text text-anchor="" x="1070.91" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.Response.MarshalJSON (24,542,349,494,886 samples, 38.14%)</title><rect x="39.2" y="225" width="450.1" height="15.0" fill="rgb(0,193,152)" rx="2" ry="2" />
+<text text-anchor="" x="42.23" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/router/naming..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendBytes (29,593,322,012 samples, 0.05%)</title><rect x="327.7" y="65" width="0.5" height="15.0" fill="rgb(0,228,49)" rx="2" ry="2" />
+<text text-anchor="" x="330.66" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (382,414,686,581 samples, 0.59%)</title><rect x="795.0" y="49" width="7.0" height="15.0" fill="rgb(0,202,28)" rx="2" ry="2" />
+<text text-anchor="" x="798.02" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0DecodeGitIntraWeiboComPlatformVintageNaming (349,093,351,903 samples, 0.54%)</title><rect x="1067.9" y="177" width="6.4" height="15.0" fill="rgb(0,193,71)" rx="2" ry="2" />
+<text text-anchor="" x="1070.91" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (46,324,402,022 samples, 0.07%)</title><rect x="348.6" y="161" width="0.9" height="15.0" fill="rgb(0,191,62)" rx="2" ry="2" />
+<text text-anchor="" x="351.64" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Version.MarshalEasyJSON (5,564,219,486 samples, 0.01%)</title><rect x="22.7" y="321" width="0.1" height="15.0" fill="rgb(0,221,112)" rx="2" ry="2" />
+<text text-anchor="" x="25.67" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.combine (34,656,494,409 samples, 0.05%)</title><rect x="1074.5" y="209" width="0.7" height="15.0" fill="rgb(0,206,3)" rx="2" ry="2" />
+<text text-anchor="" x="1077.53" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*Response).MarshalJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="273" width="11.8" height="15.0" fill="rgb(0,218,141)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*chunkWriter).Write (11,435,864,481 samples, 0.02%)</title><rect x="489.3" y="193" width="0.2" height="15.0" fill="rgb(0,217,146)" rx="2" ry="2" />
+<text text-anchor="" x="492.27" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (11,558,629,616 samples, 0.02%)</title><rect x="1187.4" y="337" width="0.3" height="15.0" fill="rgb(0,210,4)" rx="2" ry="2" />
+<text text-anchor="" x="1190.44" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).literal (265,129,147,076 samples, 0.41%)</title><rect x="1027.5" y="81" width="4.8" height="15.0" fill="rgb(0,201,160)" rx="2" ry="2" />
+<text text-anchor="" x="1030.46" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.Node.MarshalEasyJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="193" width="11.8" height="15.0" fill="rgb(0,224,91)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.mapassign (127,422,204,832 samples, 0.20%)</title><rect x="492.3" y="209" width="2.4" height="15.0" fill="rgb(0,229,83)" rx="2" ry="2" />
+<text text-anchor="" x="495.34" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.serverHandler.ServeHTTP (62,980,794,657,086 samples, 97.87%)</title><rect x="34.6" y="497" width="1154.9" height="15.0" fill="rgb(0,212,89)" rx="2" ry="2" />
+<text text-anchor="" x="37.56" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >net/http.serverHandler.ServeHTTP</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.readRequest (362,212,904,606 samples, 0.56%)</title><rect x="27.6" y="481" width="6.6" height="15.0" fill="rgb(0,203,105)" rx="2" ry="2" />
+<text text-anchor="" x="30.59" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.dataDecode (27,176,184,975,995 samples, 42.23%)</title><rect x="569.6" y="193" width="498.3" height="15.0" fill="rgb(0,215,29)" rx="2" ry="2" />
+<text text-anchor="" x="572.58" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/naming.dataDecode</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.(*config).clone (30,413,256,020,931 samples, 47.26%)</title><rect x="510.2" y="209" width="557.7" height="15.0" fill="rgb(0,238,104)" rx="2" ry="2" />
+<text text-anchor="" x="513.22" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/config.(*config).clone</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalEasyJSON (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="385" width="0.3" height="15.0" fill="rgb(0,219,127)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.Role30x (62,957,477,553,520 samples, 97.84%)</title><rect x="35.0" y="401" width="1154.5" height="15.0" fill="rgb(0,199,145)" rx="2" ry="2" />
+<text text-anchor="" x="37.99" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.Role30x</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*DataType).MarshalEasyJSON (218,430,712,947 samples, 0.34%)</title><rect x="341.7" y="161" width="4.0" height="15.0" fill="rgb(0,213,60)" rx="2" ry="2" />
+<text text-anchor="" x="344.66" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (324,258,348,955 samples, 0.50%)</title><rect x="10.2" y="97" width="5.9" height="15.0" fill="rgb(0,194,104)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*DataType).MarshalEasyJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="161" width="11.8" height="15.0" fill="rgb(0,234,105)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (178,656,668,059 samples, 0.28%)</title><rect x="328.8" y="33" width="3.3" height="15.0" fill="rgb(0,193,135)" rx="2" ry="2" />
+<text text-anchor="" x="331.83" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.Validate (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="417" width="0.2" height="15.0" fill="rgb(0,234,49)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.makemap (17,253,010,684 samples, 0.03%)</title><rect x="489.6" y="209" width="0.3" height="15.0" fill="rgb(0,235,65)" rx="2" ry="2" />
+<text text-anchor="" x="492.58" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.Role30x (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="433" width="11.8" height="15.0" fill="rgb(0,203,120)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalEasyJSON (16,904,413,681 samples, 0.03%)</title><rect x="22.5" y="353" width="0.3" height="15.0" fill="rgb(0,225,117)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bufio.(*Writer).Write (11,435,864,481 samples, 0.02%)</title><rect x="489.3" y="209" width="0.2" height="15.0" fill="rgb(0,215,137)" rx="2" ry="2" />
+<text text-anchor="" x="492.27" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (5,763,585,928 samples, 0.01%)</title><rect x="30.2" y="433" width="0.1" height="15.0" fill="rgb(0,227,7)" rx="2" ry="2" />
+<text text-anchor="" x="33.21" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*Router).ServeHTTP (62,783,795,154,994 samples, 97.57%)</title><rect x="36.2" y="321" width="1151.2" height="15.0" fill="rgb(0,191,205)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >github.com/julienschmidt/httprouter.(*Router).ServeHTTP</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.putBuf (74,658,774,565 samples, 0.12%)</title><rect x="487.9" y="193" width="1.4" height="15.0" fill="rgb(0,203,123)" rx="2" ry="2" />
+<text text-anchor="" x="490.90" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*Request).FormValue (167,383,345,507 samples, 0.26%)</title><rect x="36.2" y="241" width="3.0" height="15.0" fill="rgb(0,201,19)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (6,075,258,594 samples, 0.01%)</title><rect x="22.5" y="177" width="0.1" height="15.0" fill="rgb(0,198,37)" rx="2" ry="2" />
+<text text-anchor="" x="25.52" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/textproto.(*Reader).ReadLine (23,266,700,020 samples, 0.04%)</title><rect x="29.4" y="465" width="0.4" height="15.0" fill="rgb(0,235,193)" rx="2" ry="2" />
+<text text-anchor="" x="32.35" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.Validate (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="401" width="11.8" height="15.0" fill="rgb(0,218,80)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (23,266,700,020 samples, 0.04%)</title><rect x="29.4" y="449" width="0.4" height="15.0" fill="rgb(0,197,30)" rx="2" ry="2" />
+<text text-anchor="" x="32.35" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.mapassign (127,360,842,542 samples, 0.20%)</title><rect x="489.9" y="209" width="2.3" height="15.0" fill="rgb(0,225,25)" rx="2" ry="2" />
+<text text-anchor="" x="492.90" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (66,053,612,789 samples, 0.10%)</title><rect x="341.7" y="97" width="1.2" height="15.0" fill="rgb(0,211,44)" rx="2" ry="2" />
+<text text-anchor="" x="344.66" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="401" width="0.3" height="15.0" fill="rgb(0,230,76)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.serverHandler.ServeHTTP (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="529" width="11.8" height="15.0" fill="rgb(0,213,70)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="539.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*snapshotter).AppendCommitLog (7,979,888,234 samples, 0.01%)</title><rect x="23.1" y="465" width="0.2" height="15.0" fill="rgb(0,217,112)" rx="2" ry="2" />
+<text text-anchor="" x="26.14" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Version.MarshalEasyJSON (7,011,716,444 samples, 0.01%)</title><rect x="22.5" y="257" width="0.1" height="15.0" fill="rgb(0,221,68)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*ServiceType).UnmarshalJSON (115,647,919,530 samples, 0.18%)</title><rect x="1067.9" y="161" width="2.1" height="15.0" fill="rgb(0,198,31)" rx="2" ry="2" />
+<text text-anchor="" x="1070.91" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.valueEncoder (323,225,493,715 samples, 0.50%)</title><rect x="16.1" y="49" width="5.9" height="15.0" fill="rgb(0,231,62)" rx="2" ry="2" />
+<text text-anchor="" x="19.11" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>context.WithValue (17,401,915,292 samples, 0.03%)</title><rect x="35.8" y="353" width="0.4" height="15.0" fill="rgb(0,238,65)" rx="2" ry="2" />
+<text text-anchor="" x="38.84" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalEasyJSON (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="449" width="0.3" height="15.0" fill="rgb(0,230,174)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (1,294,545,899,202 samples, 2.01%)</title><rect x="1044.2" y="177" width="23.7" height="15.0" fill="rgb(0,203,176)" rx="2" ry="2" />
+<text text-anchor="" x="1047.17" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >r..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.(*config).Lookup (37,721,126,036,968 samples, 58.62%)</title><rect x="494.7" y="241" width="691.7" height="15.0" fill="rgb(0,194,204)" rx="2" ry="2" />
+<text text-anchor="" x="497.68" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/config.(*config).Lookup</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (5,755,721,488 samples, 0.01%)</title><rect x="1069.9" y="65" width="0.1" height="15.0" fill="rgb(0,192,128)" rx="2" ry="2" />
+<text text-anchor="" x="1072.93" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.concatstrings (11,600,226,003 samples, 0.02%)</title><rect x="1074.9" y="145" width="0.3" height="15.0" fill="rgb(0,237,105)" rx="2" ry="2" />
+<text text-anchor="" x="1077.95" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (11,542,028,259 samples, 0.02%)</title><rect x="1074.1" y="145" width="0.2" height="15.0" fill="rgb(0,206,0)" rx="2" ry="2" />
+<text text-anchor="" x="1077.10" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*Node).clone (5,176,673,632,090 samples, 8.04%)</title><rect x="1091.0" y="193" width="95.0" height="15.0" fill="rgb(0,204,38)" rx="2" ry="2" />
+<text text-anchor="" x="1094.03" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.w..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).unmarshal (265,129,147,076 samples, 0.41%)</title><rect x="1027.5" y="113" width="4.8" height="15.0" fill="rgb(0,236,121)" rx="2" ry="2" />
+<text text-anchor="" x="1030.46" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).Raw (29,593,322,012 samples, 0.05%)</title><rect x="327.7" y="81" width="0.5" height="15.0" fill="rgb(0,215,143)" rx="2" ry="2" />
+<text text-anchor="" x="330.66" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="401" width="0.2" height="15.0" fill="rgb(0,234,160)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/transfer.(*Transfer).fetchLoop (13,017,454,583 samples, 0.02%)</title><rect x="23.1" y="513" width="0.3" height="15.0" fill="rgb(0,202,163)" rx="2" ry="2" />
+<text text-anchor="" x="26.13" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.Response.MarshalJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="257" width="11.8" height="15.0" fill="rgb(0,209,90)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*Request).ParseMultipartForm (167,383,345,507 samples, 0.26%)</title><rect x="36.2" y="225" width="3.0" height="15.0" fill="rgb(0,222,150)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.valueEncoder (324,258,348,955 samples, 0.50%)</title><rect x="10.2" y="49" width="5.9" height="15.0" fill="rgb(0,234,91)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (55,497,530,398 samples, 0.09%)</title><rect x="333.8" y="81" width="1.0" height="15.0" fill="rgb(0,214,66)" rx="2" ry="2" />
+<text text-anchor="" x="336.77" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>strings.Split (23,020,793,972 samples, 0.04%)</title><rect x="1186.0" y="177" width="0.4" height="15.0" fill="rgb(0,231,30)" rx="2" ry="2" />
+<text text-anchor="" x="1188.96" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (11,539,931,043 samples, 0.02%)</title><rect x="1074.7" y="145" width="0.2" height="15.0" fill="rgb(0,225,42)" rx="2" ry="2" />
+<text text-anchor="" x="1077.74" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*encodeState).marshal (324,258,348,955 samples, 0.50%)</title><rect x="10.2" y="81" width="5.9" height="15.0" fill="rgb(0,194,157)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.makemap (17,341,095,100 samples, 0.03%)</title><rect x="34.2" y="481" width="0.4" height="15.0" fill="rgb(0,197,102)" rx="2" ry="2" />
+<text text-anchor="" x="37.23" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.Header.clone (150,348,078,578 samples, 0.23%)</title><rect x="489.5" y="225" width="2.7" height="15.0" fill="rgb(0,232,8)" rx="2" ry="2" />
+<text text-anchor="" x="492.48" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (34,651,268,992 samples, 0.05%)</title><rect x="1186.4" y="257" width="0.6" height="15.0" fill="rgb(0,235,181)" rx="2" ry="2" />
+<text text-anchor="" x="1189.38" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.goexit (63,693,398,663,706 samples, 98.98%)</title><rect x="22.0" y="529" width="1168.0" height="15.0" fill="rgb(0,205,202)" rx="2" ry="2" />
+<text text-anchor="" x="25.03" y="539.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >runtime.goexit</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*Status).UnmarshalJSON (12,676,653,683,415 samples, 19.70%)</title><rect x="569.6" y="145" width="232.4" height="15.0" fill="rgb(0,237,92)" rx="2" ry="2" />
+<text text-anchor="" x="572.58" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/v..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*DataType).UnmarshalJSON (25,881,639,076,793 samples, 40.22%)</title><rect x="569.6" y="177" width="474.6" height="15.0" fill="rgb(0,192,137)" rx="2" ry="2" />
+<text text-anchor="" x="572.58" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/naming.(*DataType).Unmarshal..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.newBufioWriterSize (44,778,084,725 samples, 0.07%)</title><rect x="26.8" y="481" width="0.8" height="15.0" fill="rgb(0,219,181)" rx="2" ry="2" />
+<text text-anchor="" x="29.77" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).(git.intra.weibo.com/platform/vintage/api/server/router/naming.lookup)-fm (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="337" width="0.2" height="15.0" fill="rgb(0,224,21)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.Validate (62,957,477,553,520 samples, 97.84%)</title><rect x="35.0" y="369" width="1154.5" height="15.0" fill="rgb(0,237,49)" rx="2" ry="2" />
+<text text-anchor="" x="37.99" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.Validate</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).ServeHTTP (62,980,794,657,086 samples, 97.87%)</title><rect x="34.6" y="465" width="1154.9" height="15.0" fill="rgb(0,227,131)" rx="2" ry="2" />
+<text text-anchor="" x="37.56" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).ServeHTTP</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (178,656,668,059 samples, 0.28%)</title><rect x="328.8" y="49" width="3.3" height="15.0" fill="rgb(0,216,103)" rx="2" ry="2" />
+<text text-anchor="" x="331.83" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.Type.MarshalJSON (323,225,493,715 samples, 0.50%)</title><rect x="16.1" y="113" width="5.9" height="15.0" fill="rgb(0,200,188)" rx="2" ry="2" />
+<text text-anchor="" x="19.11" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>strings.Join (11,600,226,003 samples, 0.02%)</title><rect x="1074.9" y="177" width="0.3" height="15.0" fill="rgb(0,226,8)" rx="2" ry="2" />
+<text text-anchor="" x="1077.95" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).Register.func1 (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="353" width="0.2" height="15.0" fill="rgb(0,204,84)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (91,927,504,545 samples, 0.14%)</title><rect x="346.9" y="113" width="1.7" height="15.0" fill="rgb(0,204,57)" rx="2" ry="2" />
+<text text-anchor="" x="349.95" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).RawByte (34,259,537,245 samples, 0.05%)</title><rect x="328.2" y="81" width="0.6" height="15.0" fill="rgb(0,211,13)" rx="2" ry="2" />
+<text text-anchor="" x="331.20" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jlexer.(*Lexer).String (11,542,028,259 samples, 0.02%)</title><rect x="1074.1" y="161" width="0.2" height="15.0" fill="rgb(0,229,81)" rx="2" ry="2" />
+<text text-anchor="" x="1077.10" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.Role30x (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="449" width="0.2" height="15.0" fill="rgb(0,210,29)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*Node).clone (6,041,936,110,145 samples, 9.39%)</title><rect x="1075.2" y="209" width="110.8" height="15.0" fill="rgb(0,190,34)" rx="2" ry="2" />
+<text text-anchor="" x="1078.16" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.wei..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*Response).MarshalJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="289" width="0.2" height="15.0" fill="rgb(0,231,106)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jlexer.(*Lexer).String (646,363,643,361 samples, 1.00%)</title><rect x="1032.3" y="145" width="11.9" height="15.0" fill="rgb(0,191,56)" rx="2" ry="2" />
+<text text-anchor="" x="1035.32" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/url.ParseRequestURI (46,318,109,774 samples, 0.07%)</title><rect x="33.4" y="465" width="0.8" height="15.0" fill="rgb(0,210,69)" rx="2" ry="2" />
+<text text-anchor="" x="36.38" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (265,129,147,076 samples, 0.41%)</title><rect x="1027.5" y="33" width="4.8" height="15.0" fill="rgb(0,233,18)" rx="2" ry="2" />
+<text text-anchor="" x="1030.46" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendString (6,092,966,377 samples, 0.01%)</title><rect x="22.5" y="209" width="0.1" height="15.0" fill="rgb(0,231,98)" rx="2" ry="2" />
+<text text-anchor="" x="25.52" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (62,957,477,553,520 samples, 97.84%)</title><rect x="35.0" y="417" width="1154.5" height="15.0" fill="rgb(0,208,51)" rx="2" ry="2" />
+<text text-anchor="" x="37.99" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (160,544,724,863 samples, 0.25%)</title><rect x="345.7" y="129" width="2.9" height="15.0" fill="rgb(0,231,166)" rx="2" ry="2" />
+<text text-anchor="" x="348.69" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (5,779,314,808 samples, 0.01%)</title><rect x="345.6" y="97" width="0.1" height="15.0" fill="rgb(0,232,31)" rx="2" ry="2" />
+<text text-anchor="" x="348.56" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net.(*conn).Read (28,621,492,591 samples, 0.04%)</title><rect x="1189.5" y="497" width="0.5" height="15.0" fill="rgb(0,205,63)" rx="2" ry="2" />
+<text text-anchor="" x="1192.46" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>path.Join (34,656,494,409 samples, 0.05%)</title><rect x="1074.5" y="193" width="0.7" height="15.0" fill="rgb(0,221,129)" rx="2" ry="2" />
+<text text-anchor="" x="1077.53" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.Type.MarshalJSON (72,346,284,481 samples, 0.11%)</title><rect x="344.3" y="113" width="1.4" height="15.0" fill="rgb(0,212,123)" rx="2" ry="2" />
+<text text-anchor="" x="347.34" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="385" width="11.8" height="15.0" fill="rgb(0,195,117)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (302,337,468,212 samples, 0.47%)</title><rect x="334.8" y="81" width="5.5" height="15.0" fill="rgb(0,221,14)" rx="2" ry="2" />
+<text text-anchor="" x="337.79" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0DecodeGitIntraWeiboComPlatformVintageNaming (25,881,639,076,793 samples, 40.22%)</title><rect x="569.6" y="161" width="474.6" height="15.0" fill="rgb(0,198,4)" rx="2" ry="2" />
+<text text-anchor="" x="572.58" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0Decod..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*response).WriteHeader (150,348,078,578 samples, 0.23%)</title><rect x="489.5" y="241" width="2.7" height="15.0" fill="rgb(0,214,194)" rx="2" ry="2" />
+<text text-anchor="" x="492.48" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.Response.MarshalJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="273" width="0.2" height="15.0" fill="rgb(0,191,49)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).unmarshal (5,755,721,488 samples, 0.01%)</title><rect x="1069.9" y="129" width="0.1" height="15.0" fill="rgb(0,233,39)" rx="2" ry="2" />
+<text text-anchor="" x="1072.93" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.Header.Set (133,170,061,880 samples, 0.21%)</title><rect x="492.2" y="241" width="2.5" height="15.0" fill="rgb(0,200,122)" rx="2" ry="2" />
+<text text-anchor="" x="495.23" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Unmarshal (106,319,018,385 samples, 0.17%)</title><rect x="1072.2" y="145" width="1.9" height="15.0" fill="rgb(0,232,39)" rx="2" ry="2" />
+<text text-anchor="" x="1075.15" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (678,243,461,643 samples, 1.05%)</title><rect x="170.5" y="65" width="12.4" height="15.0" fill="rgb(0,213,178)" rx="2" ry="2" />
+<text text-anchor="" x="173.49" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Unmarshal (103,914,081,065 samples, 0.16%)</title><rect x="1070.1" y="145" width="1.9" height="15.0" fill="rgb(0,223,109)" rx="2" ry="2" />
+<text text-anchor="" x="1073.14" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.Node.MarshalEasyJSON (16,452,118,430,541 samples, 25.57%)</title><rect x="40.0" y="161" width="301.7" height="15.0" fill="rgb(0,217,208)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/con..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendByte (55,497,530,398 samples, 0.09%)</title><rect x="333.8" y="113" width="1.0" height="15.0" fill="rgb(0,201,66)" rx="2" ry="2" />
+<text text-anchor="" x="336.77" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.DataType.MarshalEasyJSON (218,430,712,947 samples, 0.34%)</title><rect x="341.7" y="145" width="4.0" height="15.0" fill="rgb(0,239,132)" rx="2" ry="2" />
+<text text-anchor="" x="344.66" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2I (11,735,496,435 samples, 0.02%)</title><rect x="1187.0" y="289" width="0.2" height="15.0" fill="rgb(0,191,75)" rx="2" ry="2" />
+<text text-anchor="" x="1190.01" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (29,593,322,012 samples, 0.05%)</title><rect x="327.7" y="33" width="0.5" height="15.0" fill="rgb(0,212,74)" rx="2" ry="2" />
+<text text-anchor="" x="330.66" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/url.parseQuery (132,711,117,219 samples, 0.21%)</title><rect x="36.2" y="177" width="2.4" height="15.0" fill="rgb(0,213,150)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).String (88,739,629,796 samples, 0.14%)</title><rect x="332.1" y="81" width="1.6" height="15.0" fill="rgb(0,201,112)" rx="2" ry="2" />
+<text text-anchor="" x="335.10" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.Node.MarshalEasyJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="225" width="11.8" height="15.0" fill="rgb(0,213,167)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (70,914,902,527 samples, 0.11%)</title><rect x="340.4" y="81" width="1.3" height="15.0" fill="rgb(0,230,173)" rx="2" ry="2" />
+<text text-anchor="" x="343.36" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server.(*HTTPServer).ServeHTTP (62,980,794,657,086 samples, 97.87%)</title><rect x="34.6" y="481" width="1154.9" height="15.0" fill="rgb(0,218,206)" rx="2" ry="2" />
+<text text-anchor="" x="37.56" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server.(*HTTPServer).ServeHTTP</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.mapassign (127,189,342,672 samples, 0.20%)</title><rect x="30.6" y="449" width="2.4" height="15.0" fill="rgb(0,201,117)" rx="2" ry="2" />
+<text text-anchor="" x="33.63" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).unmarshal (382,414,686,581 samples, 0.59%)</title><rect x="795.0" y="113" width="7.0" height="15.0" fill="rgb(0,225,13)" rx="2" ry="2" />
+<text text-anchor="" x="798.02" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.Node.MarshalEasyJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="241" width="0.2" height="15.0" fill="rgb(0,200,167)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.Status.MarshalJSON (7,796,015,331,016 samples, 12.12%)</title><rect x="40.0" y="81" width="142.9" height="15.0" fill="rgb(0,239,69)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.co..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).literalStore (265,129,147,076 samples, 0.41%)</title><rect x="1027.5" y="65" width="4.8" height="15.0" fill="rgb(0,231,165)" rx="2" ry="2" />
+<text text-anchor="" x="1030.46" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.easyjson6615c02eEncodeGitIntraWeiboComPlatformVintageConfig (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="225" width="0.2" height="15.0" fill="rgb(0,239,190)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0EncodeGitIntraWeiboComPlatformVintageNaming (218,430,712,947 samples, 0.34%)</title><rect x="341.7" y="129" width="4.0" height="15.0" fill="rgb(0,234,164)" rx="2" ry="2" />
+<text text-anchor="" x="344.66" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).ServeHTTP (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="513" width="0.2" height="15.0" fill="rgb(0,220,61)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).value (265,129,147,076 samples, 0.41%)</title><rect x="1027.5" y="97" width="4.8" height="15.0" fill="rgb(0,192,170)" rx="2" ry="2" />
+<text text-anchor="" x="1030.46" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (62,957,477,553,520 samples, 97.84%)</title><rect x="35.0" y="385" width="1154.5" height="15.0" fill="rgb(0,218,12)" rx="2" ry="2" />
+<text text-anchor="" x="37.99" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).value (382,414,686,581 samples, 0.59%)</title><rect x="795.0" y="97" width="7.0" height="15.0" fill="rgb(0,238,196)" rx="2" ry="2" />
+<text text-anchor="" x="798.02" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (83,536,551,579 samples, 0.13%)</title><rect x="332.2" y="49" width="1.5" height="15.0" fill="rgb(0,228,173)" rx="2" ry="2" />
+<text text-anchor="" x="335.20" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*DataType).MarshalEasyJSON (16,019,850,156,631 samples, 24.89%)</title><rect x="40.0" y="129" width="293.7" height="15.0" fill="rgb(0,210,127)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/na..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).(git.intra.weibo.com/platform/vintage/api/server/router/naming.lookup)-fm (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="321" width="11.8" height="15.0" fill="rgb(0,224,2)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).RawByte (46,324,402,022 samples, 0.07%)</title><rect x="348.6" y="193" width="0.9" height="15.0" fill="rgb(0,201,168)" rx="2" ry="2" />
+<text text-anchor="" x="351.64" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).String (6,130,825,361 samples, 0.01%)</title><rect x="22.5" y="225" width="0.1" height="15.0" fill="rgb(0,223,172)" rx="2" ry="2" />
+<text text-anchor="" x="25.52" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/textproto.MIMEHeader.Set (133,170,061,880 samples, 0.21%)</title><rect x="492.2" y="225" width="2.5" height="15.0" fill="rgb(0,233,1)" rx="2" ry="2" />
+<text text-anchor="" x="495.23" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).ServeHTTP (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="497" width="11.8" height="15.0" fill="rgb(0,232,18)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.easyjson6615c02eEncodeGitIntraWeiboComPlatformVintageConfig (16,452,118,430,541 samples, 25.57%)</title><rect x="40.0" y="145" width="301.7" height="15.0" fill="rgb(0,237,89)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/con..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.Status.MarshalJSON (324,258,348,955 samples, 0.50%)</title><rect x="10.2" y="113" width="5.9" height="15.0" fill="rgb(0,210,185)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*Request).WithContext (92,465,030,868 samples, 0.14%)</title><rect x="1187.7" y="353" width="1.6" height="15.0" fill="rgb(0,217,59)" rx="2" ry="2" />
+<text text-anchor="" x="1190.65" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.DataType.MarshalEasyJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="145" width="11.8" height="15.0" fill="rgb(0,212,154)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).RawByte (55,497,530,398 samples, 0.09%)</title><rect x="333.8" y="129" width="1.0" height="15.0" fill="rgb(0,209,71)" rx="2" ry="2" />
+<text text-anchor="" x="336.77" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.typeEncoder (324,258,348,955 samples, 0.50%)</title><rect x="10.2" y="33" width="5.9" height="15.0" fill="rgb(0,234,59)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (16,904,413,681 samples, 0.03%)</title><rect x="22.5" y="337" width="0.3" height="15.0" fill="rgb(0,208,138)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (23,069,724,139 samples, 0.04%)</title><rect x="33.0" y="433" width="0.4" height="15.0" fill="rgb(0,228,14)" rx="2" ry="2" />
+<text text-anchor="" x="35.96" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*Router).ServeHTTP (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="369" width="0.2" height="15.0" fill="rgb(0,226,172)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*Type).UnmarshalJSON (12,558,621,750,017 samples, 19.52%)</title><rect x="802.0" y="145" width="230.3" height="15.0" fill="rgb(0,209,164)" rx="2" ry="2" />
+<text text-anchor="" x="805.03" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/v..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (55,497,530,398 samples, 0.09%)</title><rect x="333.8" y="97" width="1.0" height="15.0" fill="rgb(0,220,187)" rx="2" ry="2" />
+<text text-anchor="" x="336.77" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (23,069,724,139 samples, 0.04%)</title><rect x="33.0" y="449" width="0.4" height="15.0" fill="rgb(0,208,174)" rx="2" ry="2" />
+<text text-anchor="" x="35.96" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.concatstring3 (11,600,226,003 samples, 0.02%)</title><rect x="1074.9" y="161" width="0.3" height="15.0" fill="rgb(0,206,59)" rx="2" ry="2" />
+<text text-anchor="" x="1077.95" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server.(*HTTPServer).ServeHTTP (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="529" width="0.2" height="15.0" fill="rgb(0,198,86)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="539.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (62,783,795,154,994 samples, 97.57%)</title><rect x="36.2" y="353" width="1151.2" height="15.0" fill="rgb(0,232,35)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/httputils.WriteJSON (24,837,303,499,825 samples, 38.60%)</title><rect x="39.2" y="257" width="455.5" height="15.0" fill="rgb(0,198,111)" rx="2" ry="2" />
+<text text-anchor="" x="42.23" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/httputils.Writ..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*Type).UnmarshalJSON (112,113,537,777 samples, 0.17%)</title><rect x="1072.0" y="161" width="2.1" height="15.0" fill="rgb(0,194,171)" rx="2" ry="2" />
+<text text-anchor="" x="1075.05" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*conn).serve (63,591,512,455,791 samples, 98.82%)</title><rect x="23.4" y="513" width="1166.1" height="15.0" fill="rgb(0,232,90)" rx="2" ry="2" />
+<text text-anchor="" x="26.36" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >net/http.(*conn).serve</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.typeEncoder (323,225,493,715 samples, 0.50%)</title><rect x="16.1" y="33" width="5.9" height="15.0" fill="rgb(0,217,7)" rx="2" ry="2" />
+<text text-anchor="" x="19.11" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalEasyJSON (9,345,555,509 samples, 0.01%)</title><rect x="22.5" y="321" width="0.2" height="15.0" fill="rgb(0,218,156)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).BuildBytes (17,030,814,961 samples, 0.03%)</title><rect x="22.8" y="465" width="0.3" height="15.0" fill="rgb(0,229,87)" rx="2" ry="2" />
+<text text-anchor="" x="25.81" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (302,337,468,212 samples, 0.47%)</title><rect x="334.8" y="97" width="5.5" height="15.0" fill="rgb(0,219,85)" rx="2" ry="2" />
+<text text-anchor="" x="337.79" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (646,363,643,361 samples, 1.00%)</title><rect x="1032.3" y="113" width="11.9" height="15.0" fill="rgb(0,213,18)" rx="2" ry="2" />
+<text text-anchor="" x="1035.32" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.easyjson71543f2bEncodeGitIntraWeiboComPlatformVintageApiServerRouterNaming2 (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="241" width="11.8" height="15.0" fill="rgb(0,223,102)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (382,414,686,581 samples, 0.59%)</title><rect x="795.0" y="33" width="7.0" height="15.0" fill="rgb(0,227,35)" rx="2" ry="2" />
+<text text-anchor="" x="798.02" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendString (160,544,724,863 samples, 0.25%)</title><rect x="345.7" y="145" width="2.9" height="15.0" fill="rgb(0,206,100)" rx="2" ry="2" />
+<text text-anchor="" x="348.69" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).literalStore (5,755,721,488 samples, 0.01%)</title><rect x="1069.9" y="81" width="0.1" height="15.0" fill="rgb(0,220,75)" rx="2" ry="2" />
+<text text-anchor="" x="1072.93" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).literal (382,414,686,581 samples, 0.59%)</title><rect x="795.0" y="81" width="7.0" height="15.0" fill="rgb(0,209,76)" rx="2" ry="2" />
+<text text-anchor="" x="798.02" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Unmarshal (109,937,287,498 samples, 0.17%)</title><rect x="1068.0" y="145" width="2.0" height="15.0" fill="rgb(0,237,107)" rx="2" ry="2" />
+<text text-anchor="" x="1071.02" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalJSON (34,034,202,836 samples, 0.05%)</title><rect x="22.5" y="481" width="0.6" height="15.0" fill="rgb(0,233,27)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.easyjson6615c02eEncodeGitIntraWeiboComPlatformVintageConfig (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="193" width="0.2" height="15.0" fill="rgb(0,192,119)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (646,363,643,361 samples, 1.00%)</title><rect x="1032.3" y="129" width="11.9" height="15.0" fill="rgb(0,193,108)" rx="2" ry="2" />
+<text text-anchor="" x="1035.32" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage (7,011,716,444 samples, 0.01%)</title><rect x="22.5" y="241" width="0.1" height="15.0" fill="rgb(0,199,111)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendString (83,536,551,579 samples, 0.13%)</title><rect x="332.2" y="65" width="1.5" height="15.0" fill="rgb(0,208,198)" rx="2" ry="2" />
+<text text-anchor="" x="335.20" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.makemap (17,322,219,884 samples, 0.03%)</title><rect x="38.9" y="193" width="0.3" height="15.0" fill="rgb(0,220,107)" rx="2" ry="2" />
+<text text-anchor="" x="41.91" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).String (160,544,724,863 samples, 0.25%)</title><rect x="345.7" y="161" width="2.9" height="15.0" fill="rgb(0,194,205)" rx="2" ry="2" />
+<text text-anchor="" x="348.69" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/textproto.canonicalMIMEHeaderKey (5,763,585,928 samples, 0.01%)</title><rect x="30.2" y="449" width="0.1" height="15.0" fill="rgb(0,207,67)" rx="2" ry="2" />
+<text text-anchor="" x="33.21" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).Get (6,064,965,817,693 samples, 9.42%)</title><rect x="1075.2" y="225" width="111.2" height="15.0" fill="rgb(0,239,169)" rx="2" ry="2" />
+<text text-anchor="" x="1078.16" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.wei..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.dataDecode (360,731,327,794 samples, 0.56%)</title><rect x="1067.9" y="209" width="6.6" height="15.0" fill="rgb(0,234,184)" rx="2" ry="2" />
+<text text-anchor="" x="1070.91" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (9,042,683,638 samples, 0.01%)</title><rect x="22.5" y="273" width="0.2" height="15.0" fill="rgb(0,216,139)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/url.ParseQuery (150,061,125,623 samples, 0.23%)</title><rect x="36.2" y="193" width="2.7" height="15.0" fill="rgb(0,201,34)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.(*config).clone (31,621,503,724,866 samples, 49.14%)</title><rect x="494.7" y="225" width="579.8" height="15.0" fill="rgb(0,231,99)" rx="2" ry="2" />
+<text text-anchor="" x="497.68" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/config.(*config).clone</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendByte (34,259,537,245 samples, 0.05%)</title><rect x="328.2" y="65" width="0.6" height="15.0" fill="rgb(0,193,55)" rx="2" ry="2" />
+<text text-anchor="" x="331.20" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (7,116,021,502,269 samples, 11.06%)</title><rect x="182.9" y="65" width="130.5" height="15.0" fill="rgb(0,231,160)" rx="2" ry="2" />
+<text text-anchor="" x="185.93" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >encoding/json.Ma..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.easyjson71543f2bEncodeGitIntraWeiboComPlatformVintageApiServerRouterNaming2 (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="257" width="0.2" height="15.0" fill="rgb(0,228,177)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0EncodeGitIntraWeiboComPlatformVintageNaming (16,019,850,156,631 samples, 24.89%)</title><rect x="40.0" y="97" width="293.7" height="15.0" fill="rgb(0,238,144)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/na..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (62,957,651,177,050 samples, 97.84%)</title><rect x="35.0" y="449" width="1154.5" height="15.0" fill="rgb(0,220,34)" rx="2" ry="2" />
+<text text-anchor="" x="37.99" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (776,564,166,234 samples, 1.21%)</title><rect x="313.4" y="65" width="14.3" height="15.0" fill="rgb(0,233,189)" rx="2" ry="2" />
+<text text-anchor="" x="316.42" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).Apply (9,750,027,412 samples, 0.02%)</title><rect x="23.1" y="497" width="0.2" height="15.0" fill="rgb(0,223,62)" rx="2" ry="2" />
+<text text-anchor="" x="26.13" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).BuildBytes (7,622,867,954,603 samples, 11.85%)</title><rect x="349.5" y="209" width="139.8" height="15.0" fill="rgb(0,206,11)" rx="2" ry="2" />
+<text text-anchor="" x="352.48" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >github.com/mailru..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*response).Write (11,435,864,481 samples, 0.02%)</title><rect x="489.3" y="241" width="0.2" height="15.0" fill="rgb(0,223,36)" rx="2" ry="2" />
+<text text-anchor="" x="492.27" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (64,349,877,217,300 samples, 100%)</title><rect x="10.0" y="545" width="1180.0" height="15.0" fill="rgb(0,235,37)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="555.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="481" width="11.8" height="15.0" fill="rgb(0,197,61)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="497" width="0.2" height="15.0" fill="rgb(0,223,96)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendString (178,656,668,059 samples, 0.28%)</title><rect x="328.8" y="65" width="3.3" height="15.0" fill="rgb(0,214,38)" rx="2" ry="2" />
+<text text-anchor="" x="331.83" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/httputils.WriteJSON (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="289" width="11.8" height="15.0" fill="rgb(0,196,22)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).lookup (62,760,464,151,292 samples, 97.53%)</title><rect x="36.2" y="273" width="1150.8" height="15.0" fill="rgb(0,194,130)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).lookup</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (9,345,555,509 samples, 0.01%)</title><rect x="22.5" y="305" width="0.2" height="15.0" fill="rgb(0,228,139)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.TransURLTov1 (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="481" width="0.2" height="15.0" fill="rgb(0,202,7)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (66,039,452,621 samples, 0.10%)</title><rect x="343.0" y="97" width="1.2" height="15.0" fill="rgb(0,218,105)" rx="2" ry="2" />
+<text text-anchor="" x="345.98" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*encodeState).reflectValue (324,258,348,955 samples, 0.50%)</title><rect x="10.2" y="65" width="5.9" height="15.0" fill="rgb(0,216,133)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).literalStore (382,414,686,581 samples, 0.59%)</title><rect x="795.0" y="65" width="7.0" height="15.0" fill="rgb(0,202,165)" rx="2" ry="2" />
+<text text-anchor="" x="798.02" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendByte (46,324,402,022 samples, 0.07%)</title><rect x="348.6" y="177" width="0.9" height="15.0" fill="rgb(0,191,176)" rx="2" ry="2" />
+<text text-anchor="" x="351.64" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (265,129,147,076 samples, 0.41%)</title><rect x="1027.5" y="49" width="4.8" height="15.0" fill="rgb(0,219,36)" rx="2" ry="2" />
+<text text-anchor="" x="1030.46" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Unmarshal (11,912,349,334,160 samples, 18.51%)</title><rect x="813.9" y="129" width="218.4" height="15.0" fill="rgb(0,191,127)" rx="2" ry="2" />
+<text text-anchor="" x="816.88" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >encoding/json.Unmarshal</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage (5,564,219,486 samples, 0.01%)</title><rect x="22.7" y="305" width="0.1" height="15.0" fill="rgb(0,238,167)" rx="2" ry="2" />
+<text text-anchor="" x="25.67" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="465" width="0.2" height="15.0" fill="rgb(0,191,169)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendString (70,914,902,527 samples, 0.11%)</title><rect x="340.4" y="113" width="1.3" height="15.0" fill="rgb(0,199,36)" rx="2" ry="2" />
+<text text-anchor="" x="343.36" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.DataType.MarshalEasyJSON (16,019,850,156,631 samples, 24.89%)</title><rect x="40.0" y="113" width="293.7" height="15.0" fill="rgb(0,216,195)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/na..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*conn).readRequest (609,994,688,808 samples, 0.95%)</title><rect x="23.4" y="497" width="11.2" height="15.0" fill="rgb(0,194,193)" rx="2" ry="2" />
+<text text-anchor="" x="26.36" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (70,914,902,527 samples, 0.11%)</title><rect x="340.4" y="97" width="1.3" height="15.0" fill="rgb(0,196,105)" rx="2" ry="2" />
+<text text-anchor="" x="343.36" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).Register.func1 (62,772,199,647,727 samples, 97.55%)</title><rect x="36.2" y="305" width="1151.0" height="15.0" fill="rgb(0,216,106)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).Register.func1</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*encodeState).marshal (323,225,493,715 samples, 0.50%)</title><rect x="16.1" y="81" width="5.9" height="15.0" fill="rgb(0,214,29)" rx="2" ry="2" />
+<text text-anchor="" x="19.11" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0EncodeGitIntraWeiboComPlatformVintageNaming (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="129" width="11.8" height="15.0" fill="rgb(0,214,142)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="465" width="0.3" height="15.0" fill="rgb(0,196,195)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (83,536,551,579 samples, 0.13%)</title><rect x="332.2" y="33" width="1.5" height="15.0" fill="rgb(0,236,173)" rx="2" ry="2" />
+<text text-anchor="" x="335.20" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server.(*HTTPServer).ServeHTTP (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="513" width="11.8" height="15.0" fill="rgb(0,198,7)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.(*config).withPrefix (34,656,494,409 samples, 0.05%)</title><rect x="1074.5" y="225" width="0.7" height="15.0" fill="rgb(0,237,110)" rx="2" ry="2" />
+<text text-anchor="" x="1077.53" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.easyjson71543f2bEncodeGitIntraWeiboComPlatformVintageApiServerRouterNaming2 (16,879,015,291,930 samples, 26.23%)</title><rect x="40.0" y="209" width="309.5" height="15.0" fill="rgb(0,226,182)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.Node.MarshalEasyJSON (16,832,690,889,908 samples, 26.16%)</title><rect x="40.0" y="193" width="308.6" height="15.0" fill="rgb(0,195,12)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/conf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>path.Clean (23,056,268,406 samples, 0.04%)</title><rect x="1074.5" y="177" width="0.4" height="15.0" fill="rgb(0,194,64)" rx="2" ry="2" />
+<text text-anchor="" x="1077.53" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).lookup (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="321" width="0.2" height="15.0" fill="rgb(0,205,23)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.easyjsonBc289ab0EncodeGitIntraWeiboComPlatformVintageNaming (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="145" width="0.2" height="15.0" fill="rgb(0,227,97)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (323,225,493,715 samples, 0.50%)</title><rect x="16.1" y="97" width="5.9" height="15.0" fill="rgb(0,197,201)" rx="2" ry="2" />
+<text text-anchor="" x="19.11" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.Node.MarshalEasyJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="209" width="0.2" height="15.0" fill="rgb(0,236,11)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/httputils.FormValueBool (167,383,345,507 samples, 0.26%)</title><rect x="36.2" y="257" width="3.0" height="15.0" fill="rgb(0,220,108)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).get (23,020,793,972 samples, 0.04%)</title><rect x="1186.0" y="209" width="0.4" height="15.0" fill="rgb(0,218,29)" rx="2" ry="2" />
+<text text-anchor="" x="1188.96" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.Status.MarshalJSON (73,680,018,229 samples, 0.11%)</title><rect x="343.0" y="113" width="1.3" height="15.0" fill="rgb(0,203,99)" rx="2" ry="2" />
+<text text-anchor="" x="345.98" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/httputils.WriteJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="305" width="0.2" height="15.0" fill="rgb(0,233,60)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).compaction (59,186,884,783 samples, 0.09%)</title><rect x="22.0" y="497" width="1.1" height="15.0" fill="rgb(0,233,187)" rx="2" ry="2" />
+<text text-anchor="" x="25.04" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).(git.intra.weibo.com/platform/vintage/api/server/router/naming.lookup)-fm (62,760,464,151,292 samples, 97.53%)</title><rect x="36.2" y="289" width="1150.8" height="15.0" fill="rgb(0,239,32)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).(git.intra.weibo.com/platform/vintage/api/server/router/naming.lookup)-fm</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*Router).ServeHTTP-fm (62,783,795,154,994 samples, 97.57%)</title><rect x="36.2" y="337" width="1151.2" height="15.0" fill="rgb(0,238,136)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >github.com/julienschmidt/httprouter.(*Router).ServeHTTP-fm</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (7,640,565,608 samples, 0.01%)</title><rect x="344.2" y="97" width="0.1" height="15.0" fill="rgb(0,211,67)" rx="2" ry="2" />
+<text text-anchor="" x="347.20" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/url.parse (46,318,109,774 samples, 0.07%)</title><rect x="33.4" y="449" width="0.8" height="15.0" fill="rgb(0,199,184)" rx="2" ry="2" />
+<text text-anchor="" x="36.38" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalEasyJSON (9,042,683,638 samples, 0.01%)</title><rect x="22.5" y="289" width="0.2" height="15.0" fill="rgb(0,233,99)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (23,266,700,020 samples, 0.04%)</title><rect x="29.4" y="433" width="0.4" height="15.0" fill="rgb(0,202,205)" rx="2" ry="2" />
+<text text-anchor="" x="32.35" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*node).getValue (11,595,507,267 samples, 0.02%)</title><rect x="1187.2" y="305" width="0.2" height="15.0" fill="rgb(0,202,163)" rx="2" ry="2" />
+<text text-anchor="" x="1190.23" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (11,542,028,259 samples, 0.02%)</title><rect x="1074.1" y="129" width="0.2" height="15.0" fill="rgb(0,198,149)" rx="2" ry="2" />
+<text text-anchor="" x="1077.10" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).String (72,371,414,513 samples, 0.11%)</title><rect x="340.3" y="129" width="1.4" height="15.0" fill="rgb(0,232,155)" rx="2" ry="2" />
+<text text-anchor="" x="343.33" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (7,117,771,869,373 samples, 11.06%)</title><rect x="40.0" y="65" width="130.5" height="15.0" fill="rgb(0,215,64)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >encoding/json.Ma..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*Response).MarshalJSON (24,542,349,494,886 samples, 38.14%)</title><rect x="39.2" y="241" width="450.1" height="15.0" fill="rgb(0,198,141)" rx="2" ry="2" />
+<text text-anchor="" x="42.23" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/router/naming..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.slicebytetostring (11,539,931,043 samples, 0.02%)</title><rect x="1074.7" y="161" width="0.2" height="15.0" fill="rgb(0,192,198)" rx="2" ry="2" />
+<text text-anchor="" x="1077.74" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*Request).ParseForm (167,383,345,507 samples, 0.26%)</title><rect x="36.2" y="209" width="3.0" height="15.0" fill="rgb(0,205,116)" rx="2" ry="2" />
+<text text-anchor="" x="39.16" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.makemap (17,350,008,404 samples, 0.03%)</title><rect x="38.6" y="177" width="0.3" height="15.0" fill="rgb(0,237,117)" rx="2" ry="2" />
+<text text-anchor="" x="41.59" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (70,682,995,173 samples, 0.11%)</title><rect x="487.9" y="177" width="1.3" height="15.0" fill="rgb(0,227,115)" rx="2" ry="2" />
+<text text-anchor="" x="490.90" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (5,824,928,592 samples, 0.01%)</title><rect x="1189.3" y="353" width="0.2" height="15.0" fill="rgb(0,210,76)" rx="2" ry="2" />
+<text text-anchor="" x="1192.35" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*encodeState).reflectValue (323,225,493,715 samples, 0.50%)</title><rect x="16.1" y="65" width="5.9" height="15.0" fill="rgb(0,194,71)" rx="2" ry="2" />
+<text text-anchor="" x="19.11" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (11,600,226,003 samples, 0.02%)</title><rect x="1074.9" y="129" width="0.3" height="15.0" fill="rgb(0,211,82)" rx="2" ry="2" />
+<text text-anchor="" x="1077.95" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>strings.genSplit (23,020,793,972 samples, 0.04%)</title><rect x="1186.0" y="161" width="0.4" height="15.0" fill="rgb(0,191,104)" rx="2" ry="2" />
+<text text-anchor="" x="1188.96" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/textproto.(*Reader).ReadMIMEHeader (196,630,963,683 samples, 0.31%)</title><rect x="29.8" y="465" width="3.6" height="15.0" fill="rgb(0,219,155)" rx="2" ry="2" />
+<text text-anchor="" x="32.78" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).RawString (302,337,468,212 samples, 0.47%)</title><rect x="334.8" y="129" width="5.5" height="15.0" fill="rgb(0,202,7)" rx="2" ry="2" />
+<text text-anchor="" x="337.79" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="417" width="11.8" height="15.0" fill="rgb(0,202,133)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).literal (5,755,721,488 samples, 0.01%)</title><rect x="1069.9" y="97" width="0.1" height="15.0" fill="rgb(0,190,137)" rx="2" ry="2" />
+<text text-anchor="" x="1072.93" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (6,092,966,377 samples, 0.01%)</title><rect x="22.5" y="193" width="0.1" height="15.0" fill="rgb(0,206,36)" rx="2" ry="2" />
+<text text-anchor="" x="25.52" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.easyjson6615c02eEncodeGitIntraWeiboComPlatformVintageConfig (16,832,690,889,908 samples, 26.16%)</title><rect x="40.0" y="177" width="308.6" height="15.0" fill="rgb(0,234,93)" rx="2" ry="2" />
+<text text-anchor="" x="42.97" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/conf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).background (59,186,884,783 samples, 0.09%)</title><rect x="22.0" y="513" width="1.1" height="15.0" fill="rgb(0,190,208)" rx="2" ry="2" />
+<text text-anchor="" x="25.04" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.Node.MarshalEasyJSON (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="417" width="0.3" height="15.0" fill="rgb(0,194,208)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.DataType.MarshalEasyJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="161" width="0.2" height="15.0" fill="rgb(0,217,96)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.(*decodeState).value (5,755,721,488 samples, 0.01%)</title><rect x="1069.9" y="113" width="0.1" height="15.0" fill="rgb(0,220,7)" rx="2" ry="2" />
+<text text-anchor="" x="1072.93" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/jwriter.(*Writer).RawString (178,656,668,059 samples, 0.28%)</title><rect x="328.8" y="81" width="3.3" height="15.0" fill="rgb(0,205,109)" rx="2" ry="2" />
+<text text-anchor="" x="331.83" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/config.easyjson6615c02eEncodeGitIntraWeiboComPlatformVintageConfig (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="209" width="11.8" height="15.0" fill="rgb(0,217,207)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="433" width="0.2" height="15.0" fill="rgb(0,221,22)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (46,324,402,022 samples, 0.07%)</title><rect x="348.6" y="145" width="0.9" height="15.0" fill="rgb(0,221,94)" rx="2" ry="2" />
+<text text-anchor="" x="351.64" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="369" width="0.3" height="15.0" fill="rgb(0,191,104)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).AppendString (302,337,468,212 samples, 0.47%)</title><rect x="334.8" y="113" width="5.5" height="15.0" fill="rgb(0,202,50)" rx="2" ry="2" />
+<text text-anchor="" x="337.79" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*DataType).MarshalEasyJSON (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="177" width="0.2" height="15.0" fill="rgb(0,231,59)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*Router).ServeHTTP-fm (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="369" width="11.8" height="15.0" fill="rgb(0,210,114)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.rawstringtmp (5,755,721,488 samples, 0.01%)</title><rect x="1069.9" y="49" width="0.1" height="15.0" fill="rgb(0,217,58)" rx="2" ry="2" />
+<text text-anchor="" x="1072.93" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (6,350,797,448 samples, 0.01%)</title><rect x="342.9" y="97" width="0.1" height="15.0" fill="rgb(0,206,2)" rx="2" ry="2" />
+<text text-anchor="" x="345.87" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Marshal (66,566,969,673 samples, 0.10%)</title><rect x="344.3" y="97" width="1.3" height="15.0" fill="rgb(0,190,71)" rx="2" ry="2" />
+<text text-anchor="" x="347.34" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.Type.MarshalJSON (7,892,585,668,503 samples, 12.27%)</title><rect x="182.9" y="81" width="144.8" height="15.0" fill="rgb(0,200,182)" rx="2" ry="2" />
+<text text-anchor="" x="185.93" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.co..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*Router).ServeHTTP-fm (8,741,987,628 samples, 0.01%)</title><rect x="10.0" y="385" width="0.2" height="15.0" fill="rgb(0,195,22)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router.(*httpRouter).Register.func1 (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="337" width="11.8" height="15.0" fill="rgb(0,231,127)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).walk (23,020,793,972 samples, 0.04%)</title><rect x="1186.0" y="193" width="0.4" height="15.0" fill="rgb(0,217,198)" rx="2" ry="2" />
+<text text-anchor="" x="1188.96" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.TransURLTov1 (62,957,477,553,520 samples, 97.84%)</title><rect x="35.0" y="433" width="1154.5" height="15.0" fill="rgb(0,227,149)" rx="2" ry="2" />
+<text text-anchor="" x="37.99" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/api/server/filter.TransURLTov1</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>context.WithCancel (63,711,965,804 samples, 0.10%)</title><rect x="25.6" y="481" width="1.2" height="15.0" fill="rgb(0,218,8)" rx="2" ry="2" />
+<text text-anchor="" x="28.60" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.easyjsonCdfae1c8EncodeGitIntraWeiboComPlatformVintageStorage1 (17,003,387,875 samples, 0.03%)</title><rect x="22.5" y="433" width="0.3" height="15.0" fill="rgb(0,209,187)" rx="2" ry="2" />
+<text text-anchor="" x="25.50" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.getBuf (34,259,537,245 samples, 0.05%)</title><rect x="328.2" y="33" width="0.6" height="15.0" fill="rgb(0,194,87)" rx="2" ry="2" />
+<text text-anchor="" x="331.20" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.(*chain).Next (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="449" width="11.8" height="15.0" fill="rgb(0,232,119)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>encoding/json.Unmarshal (12,028,849,798,942 samples, 18.69%)</title><rect x="581.5" y="129" width="220.5" height="15.0" fill="rgb(0,199,133)" rx="2" ry="2" />
+<text text-anchor="" x="584.45" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >encoding/json.Unmarshal</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.ServiceType.MarshalJSON (72,404,410,237 samples, 0.11%)</title><rect x="341.7" y="113" width="1.3" height="15.0" fill="rgb(0,191,97)" rx="2" ry="2" />
+<text text-anchor="" x="344.66" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*store).apply (9,750,027,412 samples, 0.02%)</title><rect x="23.1" y="481" width="0.2" height="15.0" fill="rgb(0,193,154)" rx="2" ry="2" />
+<text text-anchor="" x="26.13" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (29,593,322,012 samples, 0.05%)</title><rect x="327.7" y="49" width="0.5" height="15.0" fill="rgb(0,228,73)" rx="2" ry="2" />
+<text text-anchor="" x="330.66" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/storage.(*snapshotter).Compaction (19,915,096,747 samples, 0.03%)</title><rect x="22.1" y="481" width="0.4" height="15.0" fill="rgb(0,197,101)" rx="2" ry="2" />
+<text text-anchor="" x="25.14" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*response).write (11,435,864,481 samples, 0.02%)</title><rect x="489.3" y="225" width="0.2" height="15.0" fill="rgb(0,207,119)" rx="2" ry="2" />
+<text text-anchor="" x="492.27" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/julienschmidt/httprouter.(*Router).ServeHTTP (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="353" width="11.8" height="15.0" fill="rgb(0,219,68)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/router/naming.(*serviceRouter).lookup (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="305" width="11.8" height="15.0" fill="rgb(0,226,49)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/naming.(*naming).Lookup (37,721,126,036,968 samples, 58.62%)</title><rect x="494.7" y="257" width="691.7" height="15.0" fill="rgb(0,234,202)" rx="2" ry="2" />
+<text text-anchor="" x="497.68" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >git.intra.weibo.com/platform/vintage/naming.(*naming).Lookup</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/golang/snappy.Encode (19,804,430,336 samples, 0.03%)</title><rect x="22.1" y="465" width="0.4" height="15.0" fill="rgb(0,216,68)" rx="2" ry="2" />
+<text text-anchor="" x="25.14" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>net/http.(*connReader).backgroundRead (28,621,492,591 samples, 0.04%)</title><rect x="1189.5" y="513" width="0.5" height="15.0" fill="rgb(0,233,142)" rx="2" ry="2" />
+<text text-anchor="" x="1192.46" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>github.com/mailru/easyjson/buffer.(*Buffer).EnsureSpace (34,259,537,245 samples, 0.05%)</title><rect x="328.2" y="49" width="0.6" height="15.0" fill="rgb(0,212,168)" rx="2" ry="2" />
+<text text-anchor="" x="331.20" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.convT2E (11,637,975,891 samples, 0.02%)</title><rect x="1074.3" y="193" width="0.2" height="15.0" fill="rgb(0,220,67)" rx="2" ry="2" />
+<text text-anchor="" x="1077.31" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>git.intra.weibo.com/platform/vintage/api/server/filter.TransURLTov1 (647,483,842,670 samples, 1.01%)</title><rect x="10.2" y="465" width="11.8" height="15.0" fill="rgb(0,197,184)" rx="2" ry="2" />
+<text text-anchor="" x="13.16" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>runtime.mapassign (126,842,672,091 samples, 0.20%)</title><rect x="36.3" y="161" width="2.3" height="15.0" fill="rgb(0,227,52)" rx="2" ry="2" />
+<text text-anchor="" x="39.27" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+</svg>

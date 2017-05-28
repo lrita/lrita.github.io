@@ -214,6 +214,27 @@ Showing top 20 nodes out of 106 (cum >= 122316.23MB)
 * 用`--inuse_space`来分析程序常驻内存的占用情况;
 * 用`--alloc_objects`来分析内存的临时分配情况，可以提高程序的运行速度。
 
+## go-torch
+除了直接使用`go tool pprof`外，我们还可以使用更加直观了[火焰图](http://www.brendangregg.com/FlameGraphs/memoryflamegraphs.html)
+。因此我们可以直接使用[go-torch](https://github.com/uber/go-torch)来生成golang程序的火焰图，该工具也直接
+依赖`pprof/go tool pprof`等。该工具的相关安装请看该项目的介绍。该软件的[a4daa2b](https://github.com/uber/go-torch/tree/a4daa2b9d2816627365ca5a4e8cfcd5186ac3659)
+以后版本才支持内存的profiling。
+
+我们可以使用
+```
+go-torch -alloc_space http://127.0.0.1:8080/debug/pprof/heap --colors=mem
+go-torch -inuse_space http://127.0.0.1:8080/debug/pprof/heap --colors=mem
+```
+
+__注意:`-alloc_space/-inuse_space`参数与`-u/-b`等参数有冲突，使用了`-alloc_space/-inuse_space`后请将pprof的
+资源直接追加在参数后面，而不要使用`-u/-b`参数去指定，这与`go-torch`的参数解析问题有关，看过其源码后既能明白。
+同时还要注意，分析内存的URL一定是heap结尾的，因为默认路径是profile的，其用来分析cpu相关问题。__
+
+通过上面2个命令，我们就可以得到`alloc_space/inuse_space`含义的2个火焰图，例如 [alloc_space.svg](/images/posts/tools/alloc_space.svg)/[inuse_space.svg](/images/posts/tools/inuse_space.svg)。
+我们可以使用浏览器观察这2张图，这张图，就像一个山脉的截面图，从下而上是每个函数的调用栈，因此山的高度跟函数
+调用的深度正相关，而山的宽度跟使用/分配内存的数量成正比。我们只需要留意那些宽而平的山顶，这些部分通常是我们
+需要优化的地方。
+
 ## 优化建议
 [Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
 提供了一些常用的优化建议:
