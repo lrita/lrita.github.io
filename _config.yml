@@ -19,6 +19,7 @@ side_bar_repo_limit: 4
 author: Neal Hu
 organization: Weibo, Inc.
 organization_url: http://www.weibo.com
+github_username: lrita
 location: Beijing, China
 email: lrita@163.com
 
@@ -80,16 +81,6 @@ collections:
 repository: lrita/lrita.github.io
 
 # ---------------- #
-#      Socials     #
-# ---------------- #
-github_username: lrita
-douban_username:
-facebook_username:
-weibo_username:
-zhihu_username:
-twitter_username:
-
-# ---------------- #
 #      Comments    #
 # ---------------- #
 # support provider: disqus, duoshuo
@@ -100,7 +91,7 @@ disqus_username:
 #    Analytics     #
 # ---------------- #
 google:
-    analytics_id:
+    analytics_id: xxxxxxx
 
 # ---------------- #
 #      Datas       #
