@@ -1,6 +1,6 @@
 ---
 layout: post
-title: boltdb 源码分析-持久化-n
+title: boltdb 源码分析-MVCC/持久化-3
 categories: [database, bolt]
 description: boltdb
 keywords: boltdb, database
@@ -29,7 +29,9 @@ type page struct {
     flags    uint16       // page的类型，有branchPageFlag/leafPageFlag/metaPageFlag/freelistPageFlag几种
     count    uint16       // 当page是freelistPageFlag类型时，存储的是freelist中pgid数组中元素的个数；
                           // 当page时其他类型时，存储的是inode的个数
-    overflow uint32
+    overflow uint32       // 当写操作数据量大于1个page大小时，该字段记录超出的page数，例如：写入12k的数据，
+                          // page大小为4k，则page.overflow=2，标明page header后的2个page大小区域也是该page的
+                          // 区域。
     ptr      uintptr
 }
 ```
@@ -93,7 +95,7 @@ type freelist struct {
 回滚。这样加速了事务的回滚。减少了事务缓存的内存使用，同时避免了对正在读的事务的干扰。
 
 
-# B-Tree 索引
+## B-Tree 索引
 
 `Cursor`是遍历`Bucket`的迭代器，其声明是:
 ```
@@ -120,10 +122,11 @@ type Bucket struct {
 
 type node struct {
     bucket     *Bucket
-    isLeaf     bool
-    unbalanced bool
+    isLeaf     bool	// 标记该节点是否为叶子节点，决定inode中记录的是什么
+    unbalanced bool	// 当该node上有删除操作时，标记为true，当Tx执行Commit时，会执行rebalance，将inode重新排列
     spilled    bool
-    key        []byte
+    key        []byte	// 当加载page变成node缓存时，将该node下边界inode[0]的key缓存在node上，用于在parent node
+                        // 查找本身时使用
     pgid       pgid
     parent     *node
     children   nodes
@@ -134,10 +137,15 @@ type inode struct {
     flags uint32   // 当所在node为叶子节点时，记录key的flag
     pgid  pgid     // 当所在node为叶子节点时，不使用，当所在node为分支节点时，记录所指向的page-id
     key   []byte   // 当所在node为叶子节点时，记录的为拥有的key；当所在node为分支节点时，记录的是子
-                   // 节点的上key的上边界。例如，当当前node为分支节点，拥有3个分支，[1,2,3][5,6,7][10,11,12]
-                   // 这该node上可能有3个inode，记录的key为[3,7,12]。当进行查找时2时，2<3,则去第0个子分支上继
-                   // 续搜索，当进行查找4时，3<4<7,则去第1个分支上去继续查找。
+                   // 节点的上key的下边界。例如，当当前node为分支节点，拥有3个分支，[1,2,3][5,6,7][10,11,12]
+                   // 这该node上可能有3个inode，记录的key为[1,5,10]。当进行查找时2时，2<5,则去第0个子分支上继
+                   // 续搜索，当进行查找4时，1<4<5,则去第1个分支上去继续查找。
     value []byte   // 当所在node为叶子节点时，记录的为拥有的value
+}
+
+type bucket struct {
+    root     pgid   // page id of the bucket's root-level page
+    sequence uint64 // monotonically incrementing, used by NextSequence()
 }
 ```
 
@@ -153,16 +161,43 @@ type inode struct {
 
 这棵大B-Tree上总共有2中节点，一种是`Bucket`，一种是`node`，这两种不同是节点都存储在B-Tree的K-V对上，只是
 flag不同。`Bucket`被当做树或者子树的根节点，`node`是B-Tree上的普通节点，依负在某一个`Bucket`上。`Bucket`
-当做一个子树看待，所以不会跟同级的`node`一同`rebalance`。
+当做一个子树看待，所以不会跟同级的`node`一同`rebalance`。`Bucket`在树上记录的value为`bucket`，即根节点的
+page-id和sequence。
 
+### Bucket
 因此，很好理解`Bucket`的嵌套关系。子`Bucket`就是在父`Bucket`上创建一个`Bucket`节点。
 关于`Bucket`的描述可以参考[BoltDB之Bucket(一)](http://www.d-kai.me/boltdb之bucket一/)/[BoltDB之Bucket(二)](http://www.d-kai.me/boltdb之bucket二/)
-两篇文章的描述。
+两篇文章的描述。看这2篇文章时，先忽略掉`inline bucket`部分的内容，不然不容易理解。`inline bucket`只不过是
+一个对于磁盘空间的优化，通常`Bucket`的信息在磁盘上的记录很小，如果直接占用一个`page`有些浪费，则将`Bucket`
+对应`page`的剩余部分当做`Bucket`可以使用的一个`page`，则当数据量较小时，可以节省一个`page`。
 
 `node`并不是B-Tree上的一个节点，并不是最总存储数据的K-V对，在`node`上的`inode`才是最终存储数据的K-V对。
 每个`node`对应唯一一个`page`，是`page`在内存中的缓存对象。在`Bucket`下会有`node`的缓存集合。当需要访问
 某个`page`时，会先去缓存中查找其`node`，只有`node`不存在时，才去加载`page`。
 
+### MVCC
+`bolt`的MVCC实现主要依赖COW和`meta`副本来实现。
 
-## 文件映射增长策略
+每当一个`Tx`被创建时，就复制一份当前最新的`meta`。在`Tx`中的每个操作都会将变化后的B-Tree上的`node`缓存
+`Tx`的`Bucket`副本中，这个变化只对该`Tx`可见。当有删除操作时，`Tx`会将要释放的page-id暂存在`freelist`的
+`pending`池中，当`Tx`调用Commit时，`freelist`会将`pending`的page-id真正标记为free状态，如果`Tx`调用`Rollback`
+则会将`pending`池中的page-id移除，则使`Tx`的删除操作回滚。
+
+当`Tx`调用`Commit`时，
+
+会触发`Bucket`的`rebalance`，`rebalance`会根据阈值条件，尽量提高每个修改过的`node`的
+使用率(即`Bucket`缓存的`node`，只有`put`/`del`过的`page`才会加载成`node`缓存在`Bucket`下)，经过剪去空数据分
+枝、合并相邻且填充率较低的分支，最后通过数据的搬移，释放更多的`page`。
+
+然后再触发`Bucket`的`spill`，`spill`会再将`rebalance`聚拢后的`node`根据`Bucket.FillPercent`将每个`node`所持
+有的数据将到`pagesize*Bucket.FillPercent`之下。然后获取新的`page`(获取新的`page`时，会先去freelist查找能复用
+page-id，如果找不到就新分配一个，当新分配的`page`使文件大小超过只读mmap的大小时，会重新mmap一次)，然后将`node`
+写入`page`。
+
+然后更新`freelist`的持久化记录。然后将上面操作的`page`刷新到磁盘上。最后更新`meta`的在磁盘上的记录、释放`Tx`
+的资源。
+
+因此在没有更新`meta`之前，写入的数据对于读事务都是不可见的。
+
+### 文件映射增长策略
 当`boltdb`文件小于1GB时，每次重新映射时，映射大小翻倍，当文件大于1GB时，每次增长1GB，且与pagesize对齐。
