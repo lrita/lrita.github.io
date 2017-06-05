@@ -235,6 +235,28 @@ __注意:`-alloc_space/-inuse_space`参数与`-u/-b`等参数有冲突，使用�
 调用的深度正相关，而山的宽度跟使用/分配内存的数量成正比。我们只需要留意那些宽而平的山顶，这些部分通常是我们
 需要优化的地方。
 
+## testing
+当我们需要对`go test`中某些test/benchmark进行profiling时，我们可以使用类似的方法。例如我们可以先使用`go test`
+内置的参数生成pprof数据，然后借助`go tool pprof`/`go-torch`来分析。
+
+1. 生成cpu、mem的pprof文件
+```
+go test -bench=BenchmarkStorageXXX -cpuprofile cpu.out -memprofile mem.out
+```
+
+2. 此时会生成一个二进制文件和2个pprof数据文件，例如
+```
+storage.test cpu.out mem.out
+```
+3. 然后使用go-torch来分析，二进制文件放前面
+```
+#分析cpu
+go-torch storage.test cpu.out
+#分析内存
+go-torch --colors=mem -alloc_space storage.test mem.out
+go-torch --colors=mem -inuse_space storage.test mem.out
+```
+
 ## 优化建议
 [Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
 提供了一些常用的优化建议:
