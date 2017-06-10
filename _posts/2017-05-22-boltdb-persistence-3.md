@@ -201,3 +201,6 @@ page-id，如果找不到就新分配一个，当新分配的`page`使文件大�
 
 ### 文件映射增长策略
 当`boltdb`文件小于1GB时，每次重新映射时，映射大小翻倍，当文件大于1GB时，每次增长1GB，且与pagesize对齐。
+
+## 参考
+* [持久化文件增长和复用](https://github.com/boltdb/bolt/issues/308#issuecomment-74811638)
