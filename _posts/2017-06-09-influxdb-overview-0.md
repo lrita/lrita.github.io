@@ -31,7 +31,7 @@ keywords: database influxdb
 然后启动`meta`、`monitor`、`precreator`、`snapshotter`、`continuous_querier`、`retention`、`subscriber`、
 `httpd`、多协议接收等模块。后面会讲到这些模块。
 
-`influxdb`为了争夺市场，因此兼容了很多其他竞品的数据接收格式，如`OpenTSDB`/`Graphite`/`Statsd`等。
+`influxdb`为了争夺市场，因此兼容了很多其他竞品的数据接收格式，如`OpenTSDB`/`Graphite`/`Collectd`等。
 
 ### tcp复用器
 tcp复用器的实现有很多种，通常是根据新建连接的开头几个字节来猜测/或直接判断该链接的协议，然后根据相关协议使用
