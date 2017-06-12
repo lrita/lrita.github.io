@@ -1,6 +1,6 @@
 ---
 layout: post
-title: influxdb 源码分析-概述-0
+title: influxdb 源码分析-概述
 categories: [database, influxdb]
 description: database influxdb
 keywords: database influxdb
@@ -88,7 +88,8 @@ tcp复用器的实现有很多种，通常是根据新建连接的开头几个�
 
 ### subscriber
 `subscriber`处理`influxdb`中`SUBSCRIPTIONS`部分的逻辑，将内部通过`coordinator.PointsWriter`写入的数据发送到
-`database`中配置的`SUBSCRIPTIONS`指定的URI上，采用推的模式。有点类似`Watch`的机制。
+`database`中配置的`SUBSCRIPTIONS`指定的URI上，采用推的模式。有点类似`Watch`的机制。[Kapacitor](https://docs.influxdata.com/kapacitor/v1.3/)
+就使用了此机制。
 
 各个数据接收模块都会使用到`coordinator.PointsWriter`。
 
