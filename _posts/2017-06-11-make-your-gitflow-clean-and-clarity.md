@@ -40,7 +40,7 @@ keywords: git gitflow
 比较常见的问题有：
 * 毫无意义的commit message，你从这个commit message中根本看不出他要做什么，当有一个bug code 新增时，你很难通过
 提交历史来判断大概是哪些提交可能会导致这个bug。我见过最夸张的是，修改了500行代码，commit message只有一个"a"，
-`韩红看了想打人.jpg`。
+`韩红看了想打人.jpg`。这点可以参考[Commit messages are not titles](http://antirez.com/news/90)
 * 编译不过的commit，不要以为只有新人会这样，很多老手也这样。主要是个人责任心不强或者认为`git commit`就是起一个
 `save`的意义，这是大促特错的想法，`git commit`应该保持一定的语义，表明你完成了某件事，当你手中有WIP的代码，需要
 临时切换上下文去做另一件事时，应该使用`git stash`或者diff+patch等方式来解决。
