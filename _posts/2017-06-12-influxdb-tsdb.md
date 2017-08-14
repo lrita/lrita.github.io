@@ -39,6 +39,71 @@ keywords: influxdb tsdb
 * `CreateShard(database, retentionPolicy string, shardID uint64, enabled bool) error` 创建`database`对应的的`shard`
 * `WriteToShard(shardID uint64, points []models.Point) error` 向指定`shard`写入数据
 
+#### store
+`store`是`influxdb`的存储模块，全局只有一个该实例。主要负责将数据按一定格式写入磁盘，并且维护`influxdb`相关的
+存储概念。例如：创建/删除`Shard`、创建/删除`retention policy`、调度`shard`的compaction、以及最重要的`WriteToShard`
+等等。在`store`内部又包含`index`和`engine`2个抽象概念，`index`是对应`shard`的索引，`engine`是对应`shard`的存储实现，
+不同的`engine`采用不同的存储格式和策略。后面要讲的`tsdb`其实就是一个`engine`的实现。在`influxdb`启动时，会创建
+一个`store`实例，然后`Open`它，初始化时，它会加载已经存在的[`Shard`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/store.go#L154-L276)
+，并启动一个`Shard`[监控任务](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/store.go#L1047-L1116)，
+监控任务负责调度每个`Shard`的`Compaction`和对使用`inmem`索引的`Shard`计算每种`Tag`拥有的数值的基数(与配置中`max-values-per-tag`有关)。
+
+## 文件结构
+在`influxdb`指定的存储目录下的文件结构为:
+```
+.
+├── data  # 配置中[data]下dir配置的路径
+│   ├── _internal
+│   │   └── monitor
+│   │       ├── 67
+│   │       │   └── 000000003-000000002.tsm
+│   │       ├── 69
+│   │       │   └── 000000003-000000002.tsm
+│   │       ├── 70
+│   │       │   └── 000000003-000000002.tsm
+│   │       ├── 71
+│   │       │   └── 000000003-000000002.tsm
+│   │       ├── 72
+│   │       │   └── 000000003-000000002.tsm
+│   │       ├── 73
+│   │       │   └── 000000003-000000002.tsm
+│   │       ├── 74
+│   │       │   └── 000000003-000000002.tsm
+│   │       └── 75
+│   │           └── 000000001-000000001.tsm
+│   └── testing
+│       └── autogen
+│           └── 2
+│               └── 000000002-000000002.tsm
+├── meta
+│   └── meta.db
+└── wal	# 配置文件[data]下wal-dir配置
+    ├── _internal
+    │   └── monitor
+    │       ├── 67
+    │       │   └── _00012.wal
+    │       ├── 69
+    │       │   └── _00012.wal
+    │       ├── 70
+    │       │   └── _00012.wal
+    │       ├── 71
+    │       │   └── _00012.wal
+    │       ├── 72
+    │       │   └── _00012.wal
+    │       ├── 73
+    │       │   └── _00012.wal
+    │       ├── 74
+    │       │   └── _00012.wal
+    │       └── 75
+    │           ├── _00005.wal
+    │           ├── _00006.wal
+    │           └── _00007.wal
+    └── testing
+        └── autogen
+            └── 2
+                └── _00003.wal
+```
+
 # tsdb
 我们可以先阅读以下对于`tsdb`的[官方文档](https://docs.influxdata.com/influxdb/v1.2/concepts/storage_engine/)。
 其采用的存储模型是`LSM-Tree`模型，对其进行了一定的改造。将其称之为`Time-Structured Merge Tree (TSM)`
@@ -56,5 +121,4 @@ keywords: influxdb tsdb
 * `Compaction Planner` 用来确定哪些`TSM`文件需要`compaction`，同时避免并发`compaction`之间的相互干扰
 * `Compression` 用于压缩持久化文件
 * `Writers/Readers` 用于访问文件
-
 
