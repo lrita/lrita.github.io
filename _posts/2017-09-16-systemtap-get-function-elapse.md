@@ -58,5 +58,10 @@ probe timer.s(10) { # 每10s打印一次直方图
   delete sends      # 清空数据
 }
 ```
+
+## 注意
+目前`SystemTap`并不能很好的分析`go/golang`程序，会极大概率的引起`go/golang`程序的崩溃，因此推荐使用`bcc`来
+分析`go/golang`程序。
+
 ## 参考
 * [1.148. systemtap](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/5/html/5.6_Technical_Notes/systemtap.html)
