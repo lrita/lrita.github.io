@@ -9,7 +9,7 @@ keywords: influxdb tsdb
 `tsdb`是`influxdb`的存储引擎，主要用于持久化时序数据。在分析`tsdb`之前，我们先要了解`influxdb`在使用上关于
 存储的一些概念。
 
-## concept
+# concept
 对于`influxdb`中涉及到的各种概念，官方已经提供了一个[词汇表](https://docs.influxdata.com/influxdb/v1.2/concepts/glossary)，
 以供用户查阅。
 
@@ -48,23 +48,37 @@ keywords: influxdb tsdb
 ，并启动一个`Shard`[监控任务](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/store.go#L1047-L1116)，
 监控任务负责调度每个`Shard`的`Compaction`和对使用`inmem`索引的`Shard`计算每种`Tag`拥有的数值的基数(与配置中`max-values-per-tag`有关)。
 
+# tsdb
+我们可以先阅读以下对于`tsdb`的[官方文档](https://docs.influxdata.com/influxdb/v1.2/concepts/storage_engine/)。
+其采用的存储模型是`LSM-Tree`模型，对其进行了一定的改造。将其称之为`Time-Structured Merge Tree (TSM)`
+
+当一个`point`写入时，`influxdb`根据其所属的`database`、`measurements`和`timestamp`选取一个对应的`shard`。每个
+`shard`对应一个`TSM`存储引擎。每个`shard`对应一段时间范围的存储。
+
+一个`TSM`存储引擎包含：
+* `In-Memory Index` 在`shard`之间共享，提供`measurements`，`tags`，和`series`的索引
+* `WAL` 同其他database的binlog一样，当`WAL`的大小达到一定大小后，会重启开启一个`WAL`文件。
+* `Cache` 内存中缓存的`WAL`，加速查找
+* `TSM Files` 压缩后的`series`数据
+* `FileStore` `TSM Files`的封装
+* `Compactor` 存储数据的比较器
+* `Compaction Planner` 用来确定哪些`TSM`文件需要`compaction`，同时避免并发`compaction`之间的相互干扰
+* `Compression` 用于压缩持久化文件
+* `Writers/Readers` 用于访问文件
+
+`shard`通过[`CreateShard`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/store.go#L358-L407)
+来创建。可以看出其依次创建了所需的文件目录，然后创建[`Index`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/index/inmem/inmem.go#L46-L58)
+和[`Shard`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/shard.go#L104-L134)
+数据结构。
+
 ## 文件结构
 在`influxdb`指定的存储目录下的文件结构为:
+
 ```
 .
 ├── data  # 配置中[data]下dir配置的路径
 │   ├── _internal
 │   │   └── monitor
-│   │       ├── 67
-│   │       │   └── 000000003-000000002.tsm
-│   │       ├── 69
-│   │       │   └── 000000003-000000002.tsm
-│   │       ├── 70
-│   │       │   └── 000000003-000000002.tsm
-│   │       ├── 71
-│   │       │   └── 000000003-000000002.tsm
-│   │       ├── 72
-│   │       │   └── 000000003-000000002.tsm
 │   │       ├── 73
 │   │       │   └── 000000003-000000002.tsm
 │   │       ├── 74
@@ -80,16 +94,6 @@ keywords: influxdb tsdb
 └── wal	# 配置文件[data]下wal-dir配置
     ├── _internal
     │   └── monitor
-    │       ├── 67
-    │       │   └── _00012.wal
-    │       ├── 69
-    │       │   └── _00012.wal
-    │       ├── 70
-    │       │   └── _00012.wal
-    │       ├── 71
-    │       │   └── _00012.wal
-    │       ├── 72
-    │       │   └── _00012.wal
     │       ├── 73
     │       │   └── _00012.wal
     │       ├── 74
@@ -104,21 +108,125 @@ keywords: influxdb tsdb
                 └── _00003.wal
 ```
 
-# tsdb
-我们可以先阅读以下对于`tsdb`的[官方文档](https://docs.influxdata.com/influxdb/v1.2/concepts/storage_engine/)。
-其采用的存储模型是`LSM-Tree`模型，对其进行了一定的改造。将其称之为`Time-Structured Merge Tree (TSM)`
+每一个`shard`为目录，其目录的命名格式为：
 
-当一个`point`写入时，`influxdb`根据其所属的`database`、`measurements`和`timestamp`选取一个对应的`shard`。每个
-`shard`对应一个`TSM`存储引擎。每个`shard`对应一段时间范围的存储。
+* `$(ROOT)/data/$(Database)/$(RetentionPolicy)/$(ShardID)`
+* `$(ROOT)/wal/$(Database)/$(RetentionPolicy)/$(ShardID)`
 
-一个`TSM`存储引擎包含：
-* `In-Memory Index` 在`shard`之间共享，提供`measurements`，`tags`，和`series`的索引 
-* `WAL` 同其他database的binlog一样，当`WAL`的大小达到一定大小后，会重启开启一个`WAL`文件。
-* `Cache` 内存中缓存的`WAL`，加速查找
-* `TSM Files` 压缩后的`series`数据
-* `FileStore` `TSM Files`的封装
-* `Compactor` 存储数据的比较器
-* `Compaction Planner` 用来确定哪些`TSM`文件需要`compaction`，同时避免并发`compaction`之间的相互干扰
-* `Compression` 用于压缩持久化文件
-* `Writers/Readers` 用于访问文件
+_注：当相关`shard`不使用`In-Memory Index(inmem)`时，会使用文件型`index`，默认类型为`tsi1`，会在创建
+`$(ROOT)/data/$(Database)/$(RetentionPolicy)/$(ShardID)/index`文件。_
 
+## api
+每个`shard`由一个`Index`和一个`Engine`组成，`Index`负责进行反向索引数据，`Engine`为具体的存储模型实现
+，即上面的`TSM`结构。
+
+`Index`的接口为:
+
+```
+type Index interface {
+    Open() error
+    Close() error
+    WithLogger(zap.Logger)
+
+    MeasurementExists(name []byte) (bool, error)
+    MeasurementNamesByExpr(expr influxql.Expr) ([][]byte, error)
+    MeasurementNamesByRegex(re *regexp.Regexp) ([][]byte, error)
+    DropMeasurement(name []byte) error
+    ForEachMeasurementName(fn func(name []byte) error) error
+
+    InitializeSeries(key, name []byte, tags models.Tags) error
+    CreateSeriesIfNotExists(key, name []byte, tags models.Tags) error
+    CreateSeriesListIfNotExists(keys, names [][]byte, tags []models.Tags) error
+    DropSeries(key []byte) error
+
+    SeriesSketches() (estimator.Sketch, estimator.Sketch, error)
+    MeasurementsSketches() (estimator.Sketch, estimator.Sketch, error)
+    SeriesN() int64
+
+    HasTagKey(name, key []byte) (bool, error)
+    TagSets(name []byte, options query.IteratorOptions) ([]*query.TagSet, error)
+    MeasurementTagKeysByExpr(name []byte, expr influxql.Expr) (map[string]struct{}, error)
+    MeasurementTagKeyValuesByExpr(auth query.Authorizer, name []byte, keys []string, expr influxql.Expr, keysSorted bool) ([][]string, error)
+
+    ForEachMeasurementTagKey(name []byte, fn func(key []byte) error) error
+    TagKeyCardinality(name, key []byte) int
+
+    // InfluxQL system iterators
+    MeasurementSeriesKeysByExpr(name []byte, condition influxql.Expr) ([][]byte, error)
+    SeriesPointIterator(opt query.IteratorOptions) (query.Iterator, error)
+
+    // Sets a shared fieldset from the engine.
+    SetFieldSet(fs *MeasurementFieldSet)
+
+    // Creates hard links inside path for snapshotting.
+    SnapshotTo(path string) error
+
+    // To be removed w/ tsi1.
+    SetFieldName(measurement []byte, name string)
+    AssignShard(k string, shardID uint64)
+    UnassignShard(k string, shardID uint64) error
+    RemoveShard(shardID uint64)
+
+    Type() string
+
+    Rebuild()
+}
+```
+
+`Engine`的接口为：
+```
+type Engine interface {
+    Open() error
+    Close() error
+    SetEnabled(enabled bool)
+    SetCompactionsEnabled(enabled bool)
+
+    WithLogger(zap.Logger)
+
+    LoadMetadataIndex(shardID uint64, index Index) error
+
+    CreateSnapshot() (string, error)
+    Backup(w io.Writer, basePath string, since time.Time) error
+    Restore(r io.Reader, basePath string) error
+    Import(r io.Reader, basePath string) error
+
+    CreateIterator(measurement string, opt query.IteratorOptions) (query.Iterator, error)
+    IteratorCost(measurement string, opt query.IteratorOptions) (query.IteratorCost, error)
+    WritePoints(points []models.Point) error
+
+    CreateSeriesIfNotExists(key, name []byte, tags models.Tags) error
+    CreateSeriesListIfNotExists(keys, names [][]byte, tags []models.Tags) error
+    DeleteSeriesRange(keys [][]byte, min, max int64) error
+
+    SeriesSketches() (estimator.Sketch, estimator.Sketch, error)
+    MeasurementsSketches() (estimator.Sketch, estimator.Sketch, error)
+    SeriesN() int64
+
+    MeasurementExists(name []byte) (bool, error)
+    MeasurementNamesByExpr(expr influxql.Expr) ([][]byte, error)
+    MeasurementNamesByRegex(re *regexp.Regexp) ([][]byte, error)
+    MeasurementFields(measurement []byte) *MeasurementFields
+    ForEachMeasurementName(fn func(name []byte) error) error
+    DeleteMeasurement(name []byte) error
+
+    // TagKeys(name []byte) ([][]byte, error)
+    HasTagKey(name, key []byte) (bool, error)
+    MeasurementTagKeysByExpr(name []byte, expr influxql.Expr) (map[string]struct{}, error)
+    MeasurementTagKeyValuesByExpr(auth query.Authorizer, name []byte, key []string, expr influxql.Expr, keysSorted bool) ([][]string, error)
+    ForEachMeasurementTagKey(name []byte, fn func(key []byte) error) error
+    TagKeyCardinality(name, key []byte) int
+
+    // InfluxQL iterators
+    MeasurementSeriesKeysByExpr(name []byte, condition influxql.Expr) ([][]byte, error)
+    SeriesPointIterator(opt query.IteratorOptions) (query.Iterator, error)
+
+    // Statistics will return statistics relevant to this engine.
+    Statistics(tags map[string]string) []models.Statistic
+    LastModified() time.Time
+    DiskSize() int64
+    IsIdle() bool
+    Free() error
+
+    io.WriterTo
+}
+```
