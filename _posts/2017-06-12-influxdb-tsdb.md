@@ -39,6 +39,12 @@ keywords: influxdb tsdb
 * `CreateShard(database, retentionPolicy string, shardID uint64, enabled bool) error` 创建`database`对应的的`shard`
 * `WriteToShard(shardID uint64, points []models.Point) error` 向指定`shard`写入数据
 
+#### series
+series 相当于是InfluxDB中一些数据的集合，在同一个database中，retention policy、measurement、tag sets 完全
+相同的数据同属于一个series，同一个series的数据在物理上会按照时间顺序排列存储在一起。
+
+series的key为measurement加所有tags的序列化字符串，这个key在之后会经常用到。
+
 #### store
 `store`是`influxdb`的存储模块，全局只有一个该实例。主要负责将数据按一定格式写入磁盘，并且维护`influxdb`相关的
 存储概念。例如：创建/删除`Shard`、创建/删除`retention policy`、调度`shard`的compaction、以及最重要的`WriteToShard`
@@ -116,65 +122,13 @@ keywords: influxdb tsdb
 _注：当相关`shard`不使用`In-Memory Index(inmem)`时，会使用文件型`index`，默认类型为`tsi1`，会在创建
 `$(ROOT)/data/$(Database)/$(RetentionPolicy)/$(ShardID)/index`文件。_
 
-## api
+## 存储结构
 每个`shard`由一个`Index`和一个`Engine`组成，`Index`负责进行反向索引数据，`Engine`为具体的存储模型实现
 ，即上面的`TSM`结构。
 
-`Index`的接口为:
+### [Engine](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine.go#L30-L81)
 
-```
-type Index interface {
-    Open() error
-    Close() error
-    WithLogger(zap.Logger)
-
-    MeasurementExists(name []byte) (bool, error)
-    MeasurementNamesByExpr(expr influxql.Expr) ([][]byte, error)
-    MeasurementNamesByRegex(re *regexp.Regexp) ([][]byte, error)
-    DropMeasurement(name []byte) error
-    ForEachMeasurementName(fn func(name []byte) error) error
-
-    InitializeSeries(key, name []byte, tags models.Tags) error
-    CreateSeriesIfNotExists(key, name []byte, tags models.Tags) error
-    CreateSeriesListIfNotExists(keys, names [][]byte, tags []models.Tags) error
-    DropSeries(key []byte) error
-
-    SeriesSketches() (estimator.Sketch, estimator.Sketch, error)
-    MeasurementsSketches() (estimator.Sketch, estimator.Sketch, error)
-    SeriesN() int64
-
-    HasTagKey(name, key []byte) (bool, error)
-    TagSets(name []byte, options query.IteratorOptions) ([]*query.TagSet, error)
-    MeasurementTagKeysByExpr(name []byte, expr influxql.Expr) (map[string]struct{}, error)
-    MeasurementTagKeyValuesByExpr(auth query.Authorizer, name []byte, keys []string, expr influxql.Expr, keysSorted bool) ([][]string, error)
-
-    ForEachMeasurementTagKey(name []byte, fn func(key []byte) error) error
-    TagKeyCardinality(name, key []byte) int
-
-    // InfluxQL system iterators
-    MeasurementSeriesKeysByExpr(name []byte, condition influxql.Expr) ([][]byte, error)
-    SeriesPointIterator(opt query.IteratorOptions) (query.Iterator, error)
-
-    // Sets a shared fieldset from the engine.
-    SetFieldSet(fs *MeasurementFieldSet)
-
-    // Creates hard links inside path for snapshotting.
-    SnapshotTo(path string) error
-
-    // To be removed w/ tsi1.
-    SetFieldName(measurement []byte, name string)
-    AssignShard(k string, shardID uint64)
-    UnassignShard(k string, shardID uint64) error
-    RemoveShard(shardID uint64)
-
-    Type() string
-
-    Rebuild()
-}
-```
-
-`Engine`的接口为：
-```
+```go
 type Engine interface {
     Open() error
     Close() error
@@ -228,5 +182,177 @@ type Engine interface {
     Free() error
 
     io.WriterTo
+}
+```
+当`influxd`的API收到数据后，最终会根据所属的`shard`而找到对应的`Engine`，然后调用[`WritePoints`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/engine.go#L799-L856)
+写入该`Engine`。在`Engine`中会将`models.Point`写入[`Cache`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/cache.go#L182-L204)
+和[`WAL`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/wal.go#L81-L115)。
+`Cache`和`WAL`中存有相同的数据，`Cache`主要用于查询时的读取操作，当用户查询时，可能会读取`Cache`和`TSM`
+文件中的数据，当数据有重复时，`Cache`中的数据优先级高。`WAL`中数据主要用于启动时的数据加载。
+
+可以从`WritePoints`看出其将`models.Point`拆分为多个[`Value`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/encoding.go#L94-L110)。
+其拆分规则为：
+
+当在database`tt`执行`insert disk_free,hostname=server01 value1=1000i,value2=1001i 1435362189575692182`
+后，该条会被解析为一个`models.Point`，然后在写入`Engine`后，因为有2个`Field`，所以会被拆解为2个`Value`。
+第一个`Value`的Key为`disk_free#!~#hostname=server01value1`的`IntegerValue`，`IntegerValue`中包含数据1000和
+时间戳1435362189575692182，第二个`Value`为Key为`disk_free#!~#hostname=server01value2`的`IntegerValue`，
+`IntegerValue`中包含数据1001和时间戳1435362189575692182。
+
+然后会将分解为的`Value`写入`Cache`和`WAL`。`Cache`在内存中的组织形式为一个两级的map，在这里就不细说了。
+
+将分解成的`Value`以[`Values`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/engine.go#L854)
+的形式写入`WAL`[0](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/wal.go#L397)/[1](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/wal.go#L1013-L1029):
+
+```
+| type(0x01) 1 byte | data length 4 byte | data (snappy compressed Values encoding data) |
+```
+
+[Values encoding的格式为](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/wal.go#L631-L727):
+```
+    // ┌────────────────────────────────────────────────────────────────────┐
+    // │                           WriteWALEntry                            │
+    // ├──────┬─────────┬────────┬───────┬─────────┬─────────┬───┬──────┬───┤
+    // │ Type │ Key Len │   Key  │ Count │  Time   │  Value  │...│ Type │...│
+    // │1 byte│ 2 bytes │ N bytes│4 bytes│ 8 bytes │ N bytes │   │1 byte│   │
+    // └──────┴─────────┴────────┴───────┴─────────┴─────────┴───┴──────┴───┘
+```
+在写`WAL`时，如果`WAL`文件大于[10M](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/wal.go#L28)
+时，会发生滚动，[生成一个新的`WAL`文件](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/wal.go#L545-L571)。
+
+### Compaction
+当数据不断写入，`WAL`文件的数量和`Cache`的大小会不断增长，因此需要一个`Compaction`来对数据进行压缩、文
+件清理。在`Engine`被创建后，会启动3个与`Compaction`相关的任务[`compactCache`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/engine.go#L1134-L1159)
+、[`compactTSMFull`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/engine.go#L1195-L1214)
+和[`compactTSMLevel`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/engine.go#L1174-L1193)
+分别对`Cache`和`TSM`进行`Compaction`。
+
+* `compactCache` 主要是将内存中的`Cache`的数据变为TSM文件，然后清除对应的`WAL`文件。
+* `compactTSMFull`/`compactTSMLevel` 主要是进行`TSM`文件的Compaction，
+
+#### Cache Compaction
+当`Cache`使用内存的大小大于配置文件中`cache-snapshot-memory-size`的大小，或者空闲时间大于配置文件中
+`cache-snapshot-write-cold-duration`的时间时，会触发`Cache`的compaction。其会将`Cache`中的`Value`数据
+[写入新的`TSM`文件](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/compact.go#L650-L672)
+，然后删除与该`Cache`对应的全部`WAL`文件。
+
+#### TSM 文件
+`TSM`文件有4块组成，分别为`Header`、`blocks`、`Index`和`Footer`。
+```
+┌────────┬────────────────────────────────────┬─────────────┬──────────────┐
+│ Header │               Blocks               │    Index    │    Footer    │
+│5 bytes │              N bytes               │   N bytes   │   4 bytes    │
+└────────┴────────────────────────────────────┴─────────────┴──────────────┘
+```
+
+其中`Header`的前4字节为Magic Number(大端的0x16D116D1)，第5个字节为版本号(目前为1)。
+```
+┌───────────────────┐
+│      Header       │
+├─────────┬─────────┤
+│  Magic  │ Version │
+│ 4 bytes │ 1 byte  │
+└─────────┴─────────┘
+```
+
+`Blocks`存储的是很多组CRC32和Data组成的Block，通常每个Block中有[1000](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/config.go#L42)
+个`Value`。每个Block中存储的都是相同Key的`Value`，该Block数据序列化后的长度、`Value`的类型、最大时间、最小
+时间、在文件中的偏移地址等都存储在与之对应的`Index`块中。
+```
+┌───────────────────────────────────────────────────────────┐
+│                          Blocks                           │
+├───────────────────┬───────────────────┬───────────────────┤
+│      Block 1      │      Block 2      │      Block N      │
+├─────────┬─────────┼─────────┬─────────┼─────────┬─────────┤
+│  CRC    │  Data   │  CRC    │  Data   │  CRC    │  Data   │
+│ 4 bytes │ N bytes │ 4 bytes │ N bytes │ 4 bytes │ N bytes │
+└─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
+```
+
+Blocks后面是Index块，Index中存储的是按`Value`的Key的字典序和时间戳排列的Block的元数据。
+每个Block的元数据称为一个[`IndexEntry`](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/writer.go#L172-L181)
+。同一个Key可能拥有多个Block的数据，因为每个Block最多1000个`Value`，因此其`IndexEntry`
+为一个数组。
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                   Index                                    │
+├─────────┬─────────┬──────┬───────┬─────────┬─────────┬────────┬────────┬───┤
+│ Key Len │   Key   │ Type │ Count │Min Time │Max Time │ Offset │  Size  │...│
+│ 2 bytes │ N bytes │1 byte│2 bytes│ 8 bytes │ 8 bytes │8 bytes │4 bytes │   │
+├─────────┼─────────┼──────┼───────┼─────────┼─────────┼────────┼────────┼───┤
+│ Key Len │   Key   │ Type │ Count │Min Time │Max Time │ Offset │  Size  │...│
+│ 2 bytes │ N bytes │1 byte│2 bytes│ 8 bytes │ 8 bytes │8 bytes │4 bytes │   │
+└─────────┴─────────┴──────┴───────┴─────────┴─────────┴────────┴────────┴───┘
+```
+根据`IndexEntry`中记录的时间戳范围和文件偏移地址，我们能很高效的找到我们所需数据在TSM文件中
+位置。
+
+The last section is the footer that stores the offset of the start of the index.
+
+最后一个是Footer块，占用8个字节，存储Index块的偏移位置，Footer相对于文件末尾的位置是固定的，
+读取TSM文件时，可以从文件末尾先速度出Index块的偏移量，再加载读取Index内容。
+```
+┌─────────┐
+│ Footer  │
+├─────────┤
+│Index Ofs│
+│ 8 bytes │
+└─────────┘
+```
+
+#### Level Compaction
+在Cache Compaction的同时，还会进行[Level Compaction](https://github.com/influxdata/influxdb/blob/4957b3d8be5fff66b1150f3fe894da09092e923a/tsdb/engine/tsm1/engine.go#L215-L238)。
+
+
+### `Index`
+
+```go
+type Index interface {
+    Open() error
+    Close() error
+    WithLogger(zap.Logger)
+
+    MeasurementExists(name []byte) (bool, error)
+    MeasurementNamesByExpr(expr influxql.Expr) ([][]byte, error)
+    MeasurementNamesByRegex(re *regexp.Regexp) ([][]byte, error)
+    DropMeasurement(name []byte) error
+    ForEachMeasurementName(fn func(name []byte) error) error
+
+    InitializeSeries(key, name []byte, tags models.Tags) error
+    CreateSeriesIfNotExists(key, name []byte, tags models.Tags) error
+    CreateSeriesListIfNotExists(keys, names [][]byte, tags []models.Tags) error
+    DropSeries(key []byte) error
+
+    SeriesSketches() (estimator.Sketch, estimator.Sketch, error)
+    MeasurementsSketches() (estimator.Sketch, estimator.Sketch, error)
+    SeriesN() int64
+
+    HasTagKey(name, key []byte) (bool, error)
+    TagSets(name []byte, options query.IteratorOptions) ([]*query.TagSet, error)
+    MeasurementTagKeysByExpr(name []byte, expr influxql.Expr) (map[string]struct{}, error)
+    MeasurementTagKeyValuesByExpr(auth query.Authorizer, name []byte, keys []string, expr influxql.Expr, keysSorted bool) ([][]string, error)
+
+    ForEachMeasurementTagKey(name []byte, fn func(key []byte) error) error
+    TagKeyCardinality(name, key []byte) int
+
+    // InfluxQL system iterators
+    MeasurementSeriesKeysByExpr(name []byte, condition influxql.Expr) ([][]byte, error)
+    SeriesPointIterator(opt query.IteratorOptions) (query.Iterator, error)
+
+    // Sets a shared fieldset from the engine.
+    SetFieldSet(fs *MeasurementFieldSet)
+
+    // Creates hard links inside path for snapshotting.
+    SnapshotTo(path string) error
+
+    // To be removed w/ tsi1.
+    SetFieldName(measurement []byte, name string)
+    AssignShard(k string, shardID uint64)
+    UnassignShard(k string, shardID uint64) error
+    RemoveShard(shardID uint64)
+
+    Type() string
+
+    Rebuild()
 }
 ```
