@@ -316,6 +316,22 @@ func MakeX() *X {
 
 ### 7 使用`sync.Pool`来缓存常用的对象
 
+
+## 注意
+go1.9、go1.9.2之间的版本`go tool pprof`引入了一个BUG，会导致上面的内存分析命令失败。
+下面给出一种修复办法：
+
+```shell
+cd $GOROOT/src/cmd/vendor/github.com/google
+rm pprof
+git clone https://github.com/google/pprof.git #确保在版本`e82ee9addc1b6c8e1d667ed6de0194241e1e03b5`之后
+rm $GOROOT/pkg/darwin_amd64/cmd/vendor/github.com/google/pprof
+cd $GOROOT/src/cmd/pprof
+go build
+mv pprof $GOROOT/pkg/tool/darwin_amd64/pprof
+```
+
+
 ## 参考
 * [profiling-go-programs](https://blog.golang.org/profiling-go-programs)
 * [Optimising Go allocations using pprof](https://www.robustperception.io/optimising-go-allocations-using-pprof/)
