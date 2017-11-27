@@ -99,10 +99,10 @@ gitment:
         client_secret:
 # https://github.com/gitalk/gitalk#install
 gitalk:
-    owner: lrita
+    owner: tupian
     repo: blog-comments
-    clientID: 984ff856402d00212065
-    clientSecret: 0b1936416047c3a9bda86ba878e9d0d3687f1471
+    clientID: 70809c20848b57cbfd8f
+    clientSecret: 6594f8cb9d98c40af81ef0049d12e29fed81b240
 # 在使用其它评论组件时可点击显示 Disqus
 lazy_load_disqus : false
 
