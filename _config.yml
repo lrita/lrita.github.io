@@ -8,7 +8,6 @@ title: 源代码
 subtitle: ""
 description: "lrita's blog"
 keywords: 源代码, golang, c, cpp, c++, rust
-favicon: /favicon.ico
 timezone: Asia/Shanghai
 encoding: "utf-8"
 side_bar_repo_limit: 5
@@ -92,11 +91,11 @@ disqus:
     username: 
 # https://imsun.net/posts/gitment-introduction/
 gitment:
-    owner:
-    repo:
+    owner: tupian
+    repo: blog-comments
     oauth:
-        client_id:
-        client_secret:
+        client_id: 70809c20848b57cbfd8f
+        client_secret: 6594f8cb9d98c40af81ef0049d12e29fed81b240
 # https://github.com/gitalk/gitalk#install
 gitalk:
     owner: tupian
