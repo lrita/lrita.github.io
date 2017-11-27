@@ -16,3 +16,6 @@ keywords: distributed-programming
 
 完整性相对来说比较好实现，准确性相对来说比较难实现，因为在异步网络中，很难分辨到底是真的
 宕机了还是网络延时了。
+
+#### Refer
+* [Distributed systems - replication](http://book.mixu.net/distsys/replication.html)
