@@ -11,7 +11,7 @@ keywords: 源代码, golang, c, cpp, c++, rust
 favicon: /favicon.ico
 timezone: Asia/Shanghai
 encoding: "utf-8"
-side_bar_repo_limit: 4
+side_bar_repo_limit: 5
 
 # ---------------- #
 #      Author      #
@@ -83,18 +83,31 @@ repository: lrita/lrita.github.io
 # ---------------- #
 #      Comments    #
 # ---------------- #
-# support provider: disqus, duoshuo
-comments_provider: disqus
-disqus_username:
+# support provider: disqus, gitment, gitalk
+comments_provider: gitalk
+# !!!重要!!! 请修改下面这些信息为你自己申请的
+# !!!Important!!! Please modify infos below to yours
+# https://disqus.com
+disqus:
+    username: 
+# https://imsun.net/posts/gitment-introduction/
+gitment:
+    owner:
+    repo:
+    oauth:
+        client_id:
+        client_secret:
+# https://github.com/gitalk/gitalk#install
+gitalk:
+    owner:
+    repo:
+    clientID:
+    clientSecret:
+# 在使用其它评论组件时可点击显示 Disqus
+lazy_load_disqus : false
 
 # ---------------- #
 #    Analytics     #
 # ---------------- #
 google:
-    analytics_id: xxxxxxx
-
-# ---------------- #
-#      Datas       #
-# ---------------- #
-skill_software_keywords: [C, C++, Python, Go, Rust]
-skill_research: [分布式, 存储, 消息队列]
+    analytics_id: UA-110226116-1

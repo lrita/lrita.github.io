@@ -10,4 +10,6 @@ permalink: /links/
 
 > links
 
-* [码志](http://mazhuang.org)
+{% for link in site.data.links %}
+* [{{ link.name }}]({{ link.url }})
+{% endfor %}
