@@ -1,7 +1,7 @@
 ---
 layout: post
 title: 分布式系统工程实践
-categories: [distribution, system]
+categories: [distributed-programming]
 description: distribution system
 keywords: distribution system
 ---
