@@ -229,9 +229,9 @@ func xxx(a, b, c int) (e, f, g int) {
 TEXT ·xxx(SB),NOSPLIT,$0-48
    MOVQ a+0(FP), AX           // FP+0  为参数a，将其值拷贝到寄存器AX中
    MOVQ AX, e+24(FP)          // FP+24 为返回值e，将寄存器AX赋值给返回值e
-   MOVQ b+8(FP), AX           // FP+0  为参数b
+   MOVQ b+8(FP), AX           // FP+8  为参数b
    MOVQ AX, f+32(FP)          // FP+24 为返回值f
-   MOVQ c+16(FP), AX          // FP+0  为参数c
+   MOVQ c+16(FP), AX          // FP+16 为参数c
    MOVQ AX, g+40(FP)          // FP+24 为返回值g
    RET                        // return
 ```
