@@ -471,7 +471,7 @@ TEXT main.yyy(SB) go/asm/main.go
 
 go源码版本的优点：
 * 对于连续内存使用了`MOVUPS`命令优化，（此处不一定是优化，有时还会劣化，因为X86\_64不同
-指令集混用时，会产生[额外开销](://software.intel.com/en-us/articles/intel-avx-state-transitions-migrating-sse-code-to-avx)）
+指令集混用时，会产生[额外开销](https://software.intel.com/en-us/articles/intel-avx-state-transitions-migrating-sse-code-to-avx)）
 
 我们可以运行一下`go benchmark`来比较一下两个版本，可以看出自己的汇编版本速度上明显快于go源码版本。
 ```
