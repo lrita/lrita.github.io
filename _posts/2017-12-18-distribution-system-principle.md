@@ -6,4 +6,4 @@ description: distributed system
 keywords: distributed system
 ---
 
-[分布式原理介绍](images/posts/distribution/分布式原理介绍.pdf)
+[分布式原理介绍](/images/posts/distribution/分布式原理介绍.pdf)
