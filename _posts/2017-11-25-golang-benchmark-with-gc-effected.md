@@ -1,7 +1,7 @@
 ---
 layout: post
 title: golang gc/arch 对 benchmark 的影响
-categories: [golang go]
+categories: [golang, go]
 description: golang go
 keywords: golang go
 ---
