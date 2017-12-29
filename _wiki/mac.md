@@ -148,3 +148,11 @@ Killall SystemUIServer
 brew install mpv --with-bundle
 brew linkapps mpv
 ```
+
+### MySQL GUI 客户端
+[Sequel Pro](http://www.sequelpro.com)
+
+除了从官网下载安装包外还可以通过`homebrew`安装：
+```shell
+brew cask install sequel-pro
+```
