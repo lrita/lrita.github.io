@@ -156,3 +156,12 @@ brew linkapps mpv
 ```shell
 brew cask install sequel-pro
 ```
+
+### iTerm2添加快捷键
+添加可以左移/右移一个单词的快捷键
+
+```
+Preference->Profiles->Keys
+```
+左移是`B`，右移动是`F`，如下图添加快捷键
+![iterm2-key.png](/images/wiki/iterm2-key.png)
