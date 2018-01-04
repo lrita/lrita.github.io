@@ -48,6 +48,11 @@ Hash algorithms:
 * `RTE_CRYPTO_AUTH_AES_GMAC`
 * `RTE_CRYPTO_AUTH_ZUC_EIA3`
 
+# 使用案例
+补充一个最近看到的案例：
+
+[2017双11核心技术揭秘—千亿级流量来袭，如何用硬件加速技术为CPU减负？](http://jm.taobao.org/2017/12/27/20172705/)
+
 参考文档:
 * [Intel® QuickAssist Technology](https://01.org/zh/intel-quickassist-technology)
 * [Intel(R) QuickAssist (QAT) Crypto Poll Mode Driver](http://dpdk.org/doc/guides/cryptodevs/qat.html)

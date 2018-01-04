@@ -12,7 +12,7 @@ keywords: system
 
 实现`Non-Volatile RAM`的方式也很多:
 * 有从硬件入手，实现这种物理介质
-* 有从kernel入手，将SSD与内核内存映射相结合
+* 有从kernel入手，将SSD与内核内存映射相结合[^1]
 * 有从文件系统入手，利用文件的`mmap`机制来实现
 
 
@@ -27,3 +27,13 @@ keywords: system
 比如[pmdk](https://github.com/pmem/pmdk)，就是上面的第三种方案的实现，其使用`mmap`文件作为可持久化
 的内存，然后依赖`jemalloc`进行内存管理。`Apache Kudu`也在尝试使用`pmdk`。在这方面给了我们一些新方案
 的启示，以后可以在一些项目中进行尝试。
+
+# Linux DAX
+在高版本的linux中新增加了[DAX](https://www.kernel.org/doc/Documentation/filesystems/dax.txt)机制，使
+得用户可以直接将块设备直接映射到内存空间，减少了拷贝到`page cache`额外开销（之前的文件系统，需要将设备
+上的数据拷贝到`page cache`中，然后将`page cache`映射到用户的内存空间，中间的所有操作都需要额外的内存开
+销，以及`page cache`的异步写入磁盘等步骤，对于`NVMe`/`FusionIO`/`NVDIMM`这种高速设备来说，`page cache`
+这层是额外的开销），当然DAX也需要硬件自身的支持。
+
+# 参考
+[^1]: [How to emulate Persistent Memory](http://pmem.io/2016/02/22/pm-emulation.html)
