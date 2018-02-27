@@ -149,6 +149,9 @@ VI = 随机字符串(32byte)   # 了解下AES算法，就知道VI是干嘛的了
 ##### config
 列出本地配置，只能显示`set`命令能修改的那几项。
 
+##### newaccount
+创建新账户
+
 ##### info
 用于显示`steem`区块链上的信息，例如博文，货币总量，当前汇率等。
 
@@ -394,4 +397,38 @@ VI = 随机字符串(32byte)   # 了解下AES算法，就知道VI是干嘛的了
 +-------------+
 | icycrystal4 |
 +-------------+
+```
+
+##### changewalletpassphrase
+修改钱包密码
+
+待续...
+
+
+## 调试
+
+了解完基本的安装和操作后，由于该项目的代码质量并不高，相同的操作对于一些用户就能成功，对于另一些用户却会
+异常，而且从异常栈中也没打印出什么可用信息。因此我们进一步了解其中运作时，需要加入一些调试信息。
+
+为了方便调试，我们在该项目中加入一个main入口，避免每次加一些调试信息，必须重新安装才能生效：
+```shell
+> steem-python
+> cat << EOF > main.py
+#! /usr/bin/env python
+from steem.cli import legacyentry
+if __name__ == "__main__":
+    legacyentry()
+EOF
+> chmod +x main.py
+```
+这样我们再该项目中加入了一个新的入口`main.py`，我们可以拿`main.py`当做上面`steempy`执行命令，只不过`main.py`
+会使用到我们再该项目中修改到的源码:
+
+```
+> ./main.py config
++-----------------+----------+
+| Key             | Value    |
++-----------------+----------+
+| default_account | holyshit |
++-----------------+----------+
 ```
