@@ -170,15 +170,6 @@ STM55ZDJU4mcMggVaSBAP5uPMws27PG6TxeA6kPQNSaGokwthWd6n # 此处是解析出的公
 公钥 = PrivateKey(私钥字符串).pubkey
 ```
 
-##### listkeys
-List available keys in your wallet
-
-##### newaccount
-创建新账户，使用该API命令进行创建新用户时，需要支付`申请费`，因此需要本地已经存储一个用户，并且钱包存储了
-公钥和私钥，用以完成交易，同时需要设置`default_account`，否则会出现异常。
-
-还有其他的申请用户的方式，可以参考[申请用户的几种方法](https://steemit.com/steem-help/@primus/how-to-register-steem-account-in-4-different-ways-a-complete-comparative-analysis-of-security-and-anonymity)。
-
 ##### changewalletpassphrase
 修改`本地钱包密码`(`MasterPassword`)，当本地是初始化环境不存在`本地钱包密码`时，创建它。`本地钱包密码`是
 用来加密存储用户私钥所使用的一个密码，只与本地运行环境有关。为了避免私钥从本地钱包的database中泄露，本地
@@ -195,6 +186,66 @@ Confirm Passphrase:
 
 当修改`本地钱包密码`时，输入的密码与之前设定的钱包密码不对应时，会抛出`steembase.storage.WrongMasterPasswordException`
 异常。
+
+##### addkey
+将私钥加入本地钱包，其会根据输入的私钥解析出公钥，然后将公钥、私钥都存储起来。执行过程中会要求用户输入
+上面的`本地钱包密码`，用于加密私钥。
+
+```shell
+> steempy addkey
+Private Key (wif) [Enter to quit]:
+Passphrase:
+```
+
+##### listkeys
+列出本地钱包存储的公钥
+```shell
+> steempy listkeys
++-------------------------------------------------------+
+| Available Key                                         |
++-------------------------------------------------------+
+| STM5Sr42NHoEFuFwRcgM7fAqqeqsVHFJgqpDW68MdUSaVpKGFTmC2 |
+| STM55ZDJU4mcMggVaSBAP5uPMws27PG6TxeA6kPQNSaGokwthWd6n |
++-------------------------------------------------------+
+```
+
+##### delkey
+从本地钱包删除指定公钥
+
+```shell
+> steempy delkey STM5Sr42NHoEFuFwRcgM7fAqqeqsVHFJgqpDW68MdUSaVpKGFTmC2
+Are you sure you want to delete keys from your wallet?                    # 提示确认信息
+This step is IRREVERSIBLE! If you don't have a backup, You may lose access to your account! [Y/n] y
+```
+
+##### getkey
+从本地钱包中获取与给定公钥相对于的私钥
+
+```shell
+> steempy getkey STM55ZDJU4mcMggVaSBAP5uPMws27PG6TxeA6kPQNSaGokwthWd6n
+Passphrase:                               # 输入`本地钱包密码`
+5*************************************    # 获取到的私钥
+```
+
+##### listaccounts
+列出本地钱包中存储的公钥与其对应的用户名和公钥类型
+
+```shell
+> steempy listaccounts
++-------------+---------+-------------------------------------------------------+
+| Name        | Type    | Available Key                                         |
++-------------+---------+-------------------------------------------------------+
+| n/a         | n/a     | STM5Sr42NHoEFuFwRcgM7fAqqeqsVHFJgqpDW68MdUSaVpKGFTmC2 |
+| icycrystal4 | active  | STM55ZDJU4mcMggVaSBAP5uPMws27PG6TxeA6kPQNSaGokwthWd6n |
+| icycrystal4 | posting | STM6HDiZkcQDEj7GvEVYPWXf3JzHmCCqJqCN2AYve64WPeeJaASBH |
++-------------+---------+-------------------------------------------------------+
+```
+
+##### newaccount
+创建新账户，使用该API命令进行创建新用户时，需要支付`申请费`，因此需要本地已经存储一个用户，并且钱包存储了
+公钥和私钥，用以完成交易，同时需要设置`default_account`，否则会出现异常。
+
+还有其他的申请用户的方式，可以参考[申请用户的几种方法](https://steemit.com/steem-help/@primus/how-to-register-steem-account-in-4-different-ways-a-complete-comparative-analysis-of-security-and-anonymity)。
 
 ##### info
 用于显示`steem`区块链上的信息，例如博文，货币总量，当前汇率等。
@@ -442,18 +493,6 @@ Confirm Passphrase:
 | icycrystal4 |
 +-------------+
 ```
-
-##### addkey
-Add a new key to the wallet
-
-##### delkey
-Delete keys from the wallet
-
-##### getkey
-Dump the privatekey of a pubkey from the wallet
-
-##### listaccounts
-List available accounts in your wallet
 
 ##### upvote
 Upvote a post
