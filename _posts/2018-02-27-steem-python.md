@@ -90,14 +90,14 @@ MacOS上在编译时需要注意设计[openssl的引用路径](https://github.co
 先讲几个全局参数，上面所有命令都可以设置这些参数：
 ```
 --node ${node url}  执行命令所连接的网络节点，指你执行的这条命令发送到哪个网络，
-                    是公共网络还是测试网络，如果缺省，默认是https://steemd.steemit.com
---no-broadcast, -d  
-  --no-wallet, -p       Do not load the wallet
-  --unsigned, -x        Do not try to sign the transaction
-  --expires EXPIRES, -e EXPIRES
-                        Expiration time in seconds (defaults to 30)
-  --verbose VERBOSE, -v VERBOSE
-                        Verbosity
+                    是公共网络还是测试网络，可以指定多个地址，逗号分隔。
+		    如果缺省，默认是https://steemd.steemit.com
+		    如果该参数没有时，会从本地存储的配置中获取，如果本地存储中也没有会尝试连接https://api.steemit.com
+--no-broadcast, -d  当操作到需要网络发送数据的命令时，不实际发送，模拟一下
+--no-wallet, -p       Do not load the wallet
+--unsigned, -x        Do not try to sign the transaction
+--expires EXPIRES, -e EXPIRES 事务广播过期时间
+--verbose VERBOSE, -v VERBOSE 设置日志输出等级
 ```
 
 #### 数据存储
@@ -146,11 +146,55 @@ VI = 随机字符串(32byte)   # 了解下AES算法，就知道VI是干嘛的了
 * default\_vote\_weight
 * nodes
 
+```shell
+# 设置默认用户
+> steempy set default_account testuser001
+```
+
 ##### config
 列出本地配置，只能显示`set`命令能修改的那几项。
 
+##### parsewif
+从出入的私钥解析出对应的公钥，当用户忘记公钥时，可以拿记录的私钥获取，如果私钥忘记了，就没有办法了
+
+```shell
+> steempy parsewif
+Private Key (wif) [Enter to quit:] # 在此处输入私钥
+STM55ZDJU4mcMggVaSBAP5uPMws27PG6TxeA6kPQNSaGokwthWd6n # 此处是解析出的公钥
+```
+
+解析公钥的逻辑主要由[PrivateKey](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steembase/account.py#L279-L353)
+来实现，一共就几行，但是需要了解其加密算法和组合形式。
+
+```python
+公钥 = PrivateKey(私钥字符串).pubkey
+```
+
+##### listkeys
+List available keys in your wallet
+
 ##### newaccount
-创建新账户
+创建新账户，使用该API命令进行创建新用户时，需要支付`申请费`，因此需要本地已经存储一个用户，并且钱包存储了
+公钥和私钥，用以完成交易，同时需要设置`default_account`，否则会出现异常。
+
+还有其他的申请用户的方式，可以参考[申请用户的几种方法](https://steemit.com/steem-help/@primus/how-to-register-steem-account-in-4-different-ways-a-complete-comparative-analysis-of-security-and-anonymity)。
+
+##### changewalletpassphrase
+修改`本地钱包密码`(`MasterPassword`)，当本地是初始化环境不存在`本地钱包密码`时，创建它。`本地钱包密码`是
+用来加密存储用户私钥所使用的一个密码，只与本地运行环境有关。为了避免私钥从本地钱包的database中泄露，本地
+database中存储的是加密后的私钥。当需要使用私钥时，可以输入`本地钱包密码`，解密出原本的私钥。注意这个概念，
+不要与其他地方的密码搞混了。
+
+```shell
+> steempy changewalletpassphrase
+Passphrase:
+Please provide the new password
+Passphrase:
+Confirm Passphrase:
+```
+
+当修改`本地钱包密码`时，输入的密码与之前设定的钱包密码不对应时，会抛出`steembase.storage.WrongMasterPasswordException`
+异常。
 
 ##### info
 用于显示`steem`区块链上的信息，例如博文，货币总量，当前汇率等。
@@ -399,11 +443,104 @@ VI = 随机字符串(32byte)   # 了解下AES算法，就知道VI是干嘛的了
 +-------------+
 ```
 
-##### changewalletpassphrase
-修改钱包密码
+##### addkey
+Add a new key to the wallet
 
-待续...
+##### delkey
+Delete keys from the wallet
 
+##### getkey
+Dump the privatekey of a pubkey from the wallet
+
+##### listaccounts
+List available accounts in your wallet
+
+##### upvote
+Upvote a post
+
+##### downvote
+Downvote a post
+
+##### transfer
+Transfer STEEM
+
+##### powerup
+Power up (vest STEEM as STEEM POWER)
+
+##### powerdown
+Power down (start withdrawing STEEM from steem POWER)
+
+##### powerdownroute
+Setup a powerdown route
+
+##### convert
+Convert STEEMDollars to Steem (takes a week to settle)
+
+##### balance
+Show the balance of one more more accounts
+
+##### interest
+Get information about interest payment
+
+##### permissions
+Show permissions of an account
+
+##### allow
+Allow an account/key to interact with your account
+
+##### disallow
+Remove allowance an account/key to interact with your account
+
+##### importaccount
+Import an account using a passphrase
+
+##### updatememokey
+Update an account's memo key
+
+##### approvewitness
+Approve a witnesses
+
+##### disapprovewitness
+Disapprove a witnesses
+
+##### sign
+Sign a provided transaction with available and required keys
+
+##### broadcast
+broadcast a signed transaction
+
+##### orderbook
+Obtain orderbook of the internal market
+
+##### buy
+Buy STEEM or SBD from the internal market
+
+##### sell
+Sell STEEM or SBD from the internal market
+
+##### cancel
+Cancel order in the internal market
+
+##### resteem
+Resteem an existing post
+
+##### follow
+Follow another account
+
+##### unfollow
+unfollow another account
+
+##### setprofile
+Set a variable in an account's profile
+
+##### delprofile
+Set a variable in an account's profile
+
+##### witnessupdate
+Change witness properties
+
+##### witnesscreate
+Create a witness
 
 ## 调试
 
@@ -432,3 +569,8 @@ EOF
 | default_account | holyshit |
 +-----------------+----------+
 ```
+
+在调试过程中如果发生存储方面的异常，比如`ValueError("Key already in storage")`，可以按照之前描述的database
+地址所在，将原来的database删除。
+
+
