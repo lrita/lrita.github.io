@@ -43,6 +43,11 @@ probe syscall.* {
 
 同时Tapsets还提供了一些方法，例如：`execname()`/`pid()`等
 
+### 命令行参数
+`SystemTap`使用`$`或`@`传递命令行参数：
+* `$`传递整数参数
+* `@`传递字符串参数
+
 ### 准备工作
 通常需要先安装kernel的符号表，跟kernel版本相关，先通过`uname -r`来查看版本，然后安装对应版本的符号表。
 例如，当前机器的`uname -r`输出为`3.10.0-229.el7.x86_64`，则需要安装
@@ -83,5 +88,6 @@ stap -g inject.stp 18096
 * [systemtap tutorial](https://sourceware.org/systemtap/tutorial/)
 * [SystemTap Language Reference](https://sourceware.org/systemtap/langref/)
 * [SystemTap:Instrumenting the Linux Kernel for Analyzing Performance and Functional Problems](http://www.redbooks.ibm.com/redpapers/pdfs/redp4469.pdf)
-* [LPC_2008](https://sourceware.org/systemtap/wiki/LPC2008SystemTapTutorial?action=AttachFile&do=view&target=LPC_2008_stap.pdf)
+* [LPC\_2008](https://sourceware.org/systemtap/wiki/LPC2008SystemTapTutorial?action=AttachFile&do=view&target=LPC_2008_stap.pdf)
 * [SystemTap-II](http://www.neependra.net/kernel/SystemTap-II.pdf)
+* [3.3.4. Command-Line Arguments](https://sourceware.org/systemtap/SystemTap_Beginners_Guide/commandlineargssect.html)
