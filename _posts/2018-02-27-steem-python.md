@@ -746,7 +746,7 @@ Setup a powerdown route
 ，成功即完成转换。
 
 #### balance
-显示指定账户的余额和收入，虽然名称叫做`balance`，单仅仅只是一个查询命令。这些信息都存储在用户的详情中。
+显示指定账户的余额和收入，这些信息都存储在用户的详情中。
 
 ```sh
 > steempy balance icycrystal4
