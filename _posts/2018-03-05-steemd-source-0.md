@@ -1,8 +1,8 @@
 ---
 layout: post
 title: steemd 源码分析0 插件机制
-categories: [c++, steemd, blockchain]
-description: c++ steemd steem blockchain
+categories: [c++, steem, blockchain]
+description: c++ steem blockchain
 keywords: c++ steemd steem blockchain
 ---
 
