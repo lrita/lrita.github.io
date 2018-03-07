@@ -46,7 +46,13 @@ class account_by_key_api
       std::unique_ptr< detail::account_by_key_api_impl > my;
 };
 ```
-其中该类中每个方法通过[`DECLARE_API`](https://github.com/steemit/steem/blob/42e2d95ec09d1695ec1b392d47a2e44612815cf0/libraries/plugins/json_rpc/include/steem/plugins/json_rpc/utility.hpp#L11-L34)
+
+`steemd`自己用宏实现一套API声明注册的框架，每个API，对应一个class，如`account_by_key_api`。这个class并
+不实现任何API的逻辑，可以为是这个框架必须的一个容器，每个API下的方法对应的实现，有存储在class内的`my`指
+针上，该指针必须使用这个名称。然后需要对外暴露哪些方法，则使用`DECLARE_API`/`DEFINE_READ_APIS`来声明、
+实现这个代理层，然后其生成的方法会调用`my`指针指向的实现类里对应的方法。
+
+该类中每个方法通过[`DECLARE_API`](https://github.com/steemit/steem/blob/42e2d95ec09d1695ec1b392d47a2e44612815cf0/libraries/plugins/json_rpc/include/steem/plugins/json_rpc/utility.hpp#L11-L34)
 来宏来声明，支持一次声明多个方法。例如:
 ```cpp
   DECLARE_API( (push_block) (push_transaction) )
@@ -158,4 +164,40 @@ fc::reflector<TYPE>::visit( Visitor )       # 使用一个Visitor()遍历TYPE注
 ```
 
 ## API类的实现
+API类方法的实现使用宏[`DEFINE_READ_APIS`](https://github.com/steemit/steem/blob/42e2d95ec09d1695ec1b392d47a2e44612815cf0/libraries/plugins/json_rpc/include/steem/plugins/json_rpc/utility.hpp#L78-L79)
+来生成。
+```cpp
+DEFINE_READ_APIS( account_by_key_api, (get_key_references) )
+```
+其展开为：
+```cpp
+${method}_return ${api_class}::${method} (const ${method}_args & args, bool lock)
+{
+  if (lock)
+  {
+    return my->_db.with_read_lock( [&args, this](){ return my->${method}(args); } );
+  }
+  else
+  {
+    return my->${method}(args);
+  }
+}
+```
+拿上面的`account_by_key_api`来实例展开就是：
+```cpp
+get_key_references_return account_by_key_api::get_key_references (const get_key_references_args & args, bool lock)
+{
+  if (lock)
+  {
+    return my->_db.with_read_lock( [&args, this](){ return my->get_key_references(args); } );
+  }
+  else
+  {
+    return my->get_key_references(args);
+  }
+}
+```
+其中`my->get_key_references`就是实际逻辑的实现函数，有用户自己实现。
 
+## API的注册
+API自己实现
