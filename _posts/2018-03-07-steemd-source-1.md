@@ -49,9 +49,7 @@ class account_by_key_api
 其中该类中每个方法通过[`DECLARE_API`](https://github.com/steemit/steem/blob/42e2d95ec09d1695ec1b392d47a2e44612815cf0/libraries/plugins/json_rpc/include/steem/plugins/json_rpc/utility.hpp#L11-L34)
 来宏来声明，支持一次声明多个方法。例如:
 ```cpp
-      DECLARE_API(
-         (push_block)
-         (push_transaction) )
+  DECLARE_API( (push_block) (push_transaction) )
 ```
 
 该宏的展开是：
@@ -60,15 +58,15 @@ class account_by_key_api
 ${method}_return ${method}(const ${method}_args & arg, bool lock = false );
 ...
 
-# 然后在添加一个模板
+# 然后再添加一个模板
 template< typename Lambda >
 void for_each_api( Lambda&& callback )
 {
-   # 对于每个method都声明这么对应的一个代码块
+  # 对于每个method都声明这么对应的一个代码块
   {
     typedef std::remove_pointer<decltype(this)>::type this_type;
 
-    callback(*this, "${method}", &this_type::method,
+    callback(*this, "${method}", &this_type::${method},
       static_cast< ${method}_args *>(nullptr),
       static_cast< ${method}_return *>(nullptr)
     );
@@ -93,11 +91,34 @@ class account_by_key_api
          {
             typedef std::remove_pointer<decltype(this)>::type this_type;
 
-            callback(*this, "get_key_references", &this_type::method,
+            callback(*this, "get_key_references", &this_type::get_key_references,
                static_cast< get_key_references_args *>(nullptr),
                static_cast< get_key_references_return *>(nullptr)
             );
          }
+      }
+
+   private:
+      std::unique_ptr< detail::account_by_key_api_impl > my;
+};
+```
+其中`for_each_api`中的代码块其实还能再进行一次"展开"：
+```cpp
+class account_by_key_api
+{
+   public:
+      account_by_key_api();
+      ~account_by_key_api();
+
+      get_key_references_return get_key_references(const get_key_references_args & arg, bool lock = false );
+
+      template< typename Lambda >
+      void for_each_api( Lambda&& callback )
+      {
+            callback(*this, "get_key_references", &account_by_key_api::get_key_references,
+               static_cast< get_key_references_args *>(nullptr),
+               static_cast< get_key_references_return *>(nullptr)
+            );
       }
 
    private:
@@ -119,6 +140,21 @@ struct get_key_references_return
 
 FC_REFLECT( steem::plugins::account_by_key::get_key_references_args, (keys) )
 FC_REFLECT( steem::plugins::account_by_key::get_key_references_return, (accounts) )
+```
+其中`FC_REFLECT`是一个宏，用模板函数特化和TypeTraits来实现静态的反射，具体的实现，可以参考：
+
+然后我们可以使用以下"反射"函数：
+```cpp
+const char* fc::get_typename<TYPE>::name(); # 返回类型TYPE的名称
+                                            # fc::get_typename<steem::plugins::account_by_key::get_key_references_args>返回字符串"steem::plugins::account_by_key::get_key_references_args"
+fc::reflector<TYPE>::is_defined::value      # 表示TYPE是否定义过，当TYPE使用该类宏声明过，value为true，否则为false
+                                            # fc::reflector<steem::plugins::account_by_key::get_key_references_args>::is_defined::value == true
+fc::reflector<TYPE>::is_enum::value         # 表示TYPE是否是enum
+                                            # fc::reflector<steem::plugins::account_by_key::get_key_references_args>::is_enum::value == false
+fc::reflector<TYPE>::local_member_count     # 是一个enum，其值为当时TYPE使用FC_REFLECT声明时，其后面声明了几个成员，注意并不是TYPE实际拥有的成员数
+                                            # fc::reflector<steem::plugins::account_by_key::get_key_references_args>::local_member_count == 1
+fc::reflector<TYPE>::total_member_count     # 使用FC_REFLECT声明的TYPE的total_member_count == local_member_count，其他方式声明的不一定
+fc::reflector<TYPE>::visit( Visitor )       # 使用一个Visitor()遍历TYPE注册的成员类型
 ```
 
 ## API类的实现
