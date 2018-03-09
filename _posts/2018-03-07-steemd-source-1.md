@@ -108,7 +108,7 @@ class account_by_key_api
       std::unique_ptr< detail::account_by_key_api_impl > my;
 };
 ```
-其中`for_each_api`中的代码块其实还能再进行一次"展开"：
+其中`for_each_api`中的代码块其实还能再进行一次“展开”：
 ```cpp
 class account_by_key_api
 {
@@ -151,6 +151,7 @@ FC_REFLECT( steem::plugins::account_by_key::get_key_references_return, (accounts
 1. 这2个类必须调用`FC_REFLECT`进行反射
 2. 调用`FC_REFLECT`进行反射时，暴露的类成员必须是public的。
 3. 使用`FC_REFLECT`反射暴露的每个成员的类型如果不是buildin类型，则也必须使用`FC_REFLECT`进行声明。
+
 这3点一定需要记住，否则在注册时，构造`fc::variant`时，会实例化失败。
 
 其中`FC_REFLECT`是一个宏，用模板函数特化和TypeTraits来实现静态的反射，具体的实现，可以参考：[1](https://github.com/steemit/fc/tree/e3e2912760884c08513626fad5b50339b16da8ef/include/fc/reflect)
@@ -206,7 +207,7 @@ get_key_references_return account_by_key_api::get_key_references(
   }
 }
 ```
-其中`my->get_key_references`就是实际逻辑的实现函数，有用户自己实现。
+其中`my->get_key_references`就是实际逻辑的实现函数，由用户自己实现。
 
 ## API的注册
 API类声明、实现好了后，`JSON RPC`模块并不知该API的存在，因此将API注册到`JSON RPC`的模块插件里。该注册
@@ -227,7 +228,7 @@ account_by_key_api::account_by_key_api(): my( new detail::account_by_key_api_imp
 }
 ```
 
-其调用了前面宏生成的`for_each_api`函数，在该函数中会调用
+其调用了前面宏生成的`for_each_api`模板函数，在该函数中会调用
 `void steem::plugins::json_rpc::detail::register_api_method_visitor::operator()`方法进行注册。其实现为：
 ```cpp
 template< typename Plugin, typename Method, typename Args, typename Ret >
@@ -315,4 +316,237 @@ HTTP通讯，HTTP通讯由`webserver`插件负责，这个模块留在以后再�
 ```
 
 ## 实现自己的插件和API
+我们可以参照上面讲解的机制来实现一个自己的API插件，并且注册自己的API。我们将这个插件命名为
+`demo_api`，放置在`libraries/plugins/apis/`目录下。
+
+注意，不能按官方文档中说的，放置在项目的[`external_plugins`](https://github.com/steemit/steem/tree/42e2d95ec09d1695ec1b392d47a2e44612815cf0)
+目录下，因为这个模板不再CMake中插件模板生成器的调用路径中。
+
+首先我们创建该插件的整体的文件结构为：
+```sh
+> tree libraries/plugins/apis/demo_api/
+libraries/plugins/apis/demo_api/
+├── CMakeLists.txt
+├── demo_api.cpp
+├── include
+│   └── steem
+│       └── plugins
+│           └── demo_api
+│               ├── demo_api.hpp
+│               └── demo_api_plugin.hpp
+└── plugin.json
+```
+
+然后，我们开始填充这些文件，前面的原理分析中有很多微小的细节没有明说，这些微小的细节会在注释中说明：
+
+* `libraries/plugins/apis/demo_api/include/steem/plugins/demo_api/demo_api.hpp`文件
+```cpp
+#pragma once
+#include <steem/plugins/json_rpc/utility.hpp>
+#include <steem/protocol/types.hpp>
+#include <fc/optional.hpp>
+#include <fc/variant.hpp>
+#include <fc/vector.hpp>
+
+namespace steem {
+namespace plugins {
+namespace demo {
+
+namespace detail {
+class demo_api_impl;
+}
+
+// get_sum方法的输入参数
+struct get_sum_args {
+  std::vector<int64_t> nums;
+};
+
+// get_sum方法的输出参数
+struct get_sum_return {
+  int64_t sum;
+};
+
+class demo_api {
+ public:
+  demo_api();
+  ~demo_api();
+
+  DECLARE_API((get_sum))
+
+ private:
+  std::unique_ptr<detail::demo_api_impl> my;
+};
+}
+}
+}
+
+// 将方法输入、输出参数进行反射
+FC_REFLECT( steem::plugins::demo::get_sum_args, (nums) )
+FC_REFLECT( steem::plugins::demo::get_sum_return, (sum) )
+```
+
+* `libraries/plugins/apis/demo_api/include/steem/plugins/demo_api/demo_api_plugin.hpp`文件
+```cpp
+// 这是插件类声明的头文件，该文件名必须与plugin.json中的plugin_project字段和该插件目录
+// 中CMakeLists.txt的add_library声明的库名相同，如果3者不相同的话，在编译时，插件模板
+// 生成的文件中会无法正确匹配到该头文件，从而编译错误。
+
+#pragma once
+#include <steem/plugins/json_rpc/json_rpc_plugin.hpp>
+#include <appbase/application.hpp>
+
+#define STEEM_DEMO_API_PLUGIN_NAME "demo_api"
+
+namespace steem {
+namespace plugins {
+namespace demo {
+class demo_api_plugin : public appbase::plugin<demo_api_plugin> {
+ public:
+  demo_api_plugin() {};
+  virtual ~demo_api_plugin() {};
+
+  // 用以声明该插件依赖哪些插件
+  APPBASE_PLUGIN_REQUIRES((steem::plugins::json_rpc::json_rpc_plugin))
+  // 必须拥有的一个方法name，注册时用以唯一标识该插件
+  static const std::string &name() {
+    static std::string name = STEEM_DEMO_API_PLUGIN_NAME;
+    return name;
+  }
+
+  virtual void set_program_options(appbase::options_description &cli, appbase::options_description &cfg) override {};
+
+  virtual void plugin_initialize(const appbase::variables_map &options) override;
+  virtual void plugin_startup() override {};
+  virtual void plugin_shutdown() override {};
+
+  std::shared_ptr<class demo_api> api;
+};
+}
+}
+}
+```
+
+* `libraries/plugins/apis/demo_api/demo_api.cpp`文件
+```cpp
+#include <steem/plugins/demo_api/demo_api.hpp>
+#include <steem/plugins/demo_api/demo_api_plugin.hpp>
+
+namespace steem {
+namespace plugins {
+namespace demo {
+
+namespace detail {
+
+class demo_api_impl {
+ public:
+  demo_api_impl() {}
+  ~demo_api_impl() {}
+
+  // get_sum 就是我们提供的一个API方法，将输入的数组进行求和
+  get_sum_return get_sum(const get_sum_args &args) const {
+    get_sum_return final{0};
+    for (auto num : args.nums) {
+      final.sum += num;
+    }
+    return final;
+  }
+};
+}
+
+demo_api::demo_api() : my(new detail::demo_api_impl()) {
+  JSON_RPC_REGISTER_API(STEEM_DEMO_API_PLUGIN_NAME);
+}
+
+demo_api::~demo_api() {}
+
+// 需要注意创建demo_api的时机，因为demo_api的构造函数中会调用JSON RPC插件去注册API，因此
+// 需要等JSON RPC先初始化好，plugin_initialize被调用时，会先注册demo_api_plugin的依赖
+// 模块，因此可以确保此时JSON RPC插件此时已经注册完毕。
+void demo_api_plugin::plugin_initialize(const appbase::variables_map &options) {
+  api = std::make_shared<demo_api>();
+}
+
+DEFINE_LOCKLESS_APIS( demo_api, (get_sum) )
+}
+}
+}
+```
+
+* `libraries/plugins/apis/demo_api/CMakeLists.txt`文件
+```cpp
+file(GLOB HEADERS "include/steem/plugins/demo_api/*.hpp")
+add_library( demo_api_plugin
+        demo_api.cpp
+        )
+
+# 当该模块调用了其他模块的方法时，target_link_libraries需要将这些被调用的模块添加进来。
+# 下面的例子基本上是最小模块
+target_link_libraries( demo_api_plugin json_rpc_plugin steem_protocol appbase fc )
+target_include_directories( demo_api_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
+
+
+if( CLANG_TIDY_EXE )
+    set_target_properties(
+            demo_api_plugin PROPERTIES
+            CXX_CLANG_TIDY "${DO_CLANG_TIDY}"
+    )
+endif( CLANG_TIDY_EXE )
+
+install( TARGETS
+        demo_api_plugin
+
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        )
+```
+
+* `libraries/plugins/apis/demo_api/plugin.json`文件
+```cpp
+{
+  "plugin_name": "demo_api",
+  "plugin_namespace": "demo",
+  "plugin_project": "demo_api_plugin"
+}
+```
+
+## 编译
+```sh
+# 由于项目使用cmake，我们可以在任意地方编译源码
+> mkdir build && cd build
+> cmake -DBOOST_ROOT="$BOOST_ROOT" \
+		      -DREADLINE_INCLUDE_DIR="/usr/local/Cellar/readline/7.0.3_1/include" \
+		      -DOPENSSL_ROOT_DIR="/usr/local/opt/openssl" \
+		      -DBUILD_STEEM_TESTNET=ON
+		      ../steem # 源码路径
+```
+
+## 运行
+首先，我们先运行一次编译好的程序，它会在当前目录创建一个默认配置。
+```sh
+> ./programs/steemd/steemd
+```
+然后我们打开默认配置`witness_node_data_dir/config.ini`将第一次启动输出的`initminer private key:`后的
+的字符串填到配置的`private-key`配置项，然后在配置的`plugin`填上我们自己的插件`demo_api`，还有其他一些
+配置：
+```
+plugin = demo_api
+webserver-http-endpoint = 127.0.0.1:8090
+witness = "initminer"
+enable-stale-production = true
+private-key = 5JNHfZYKGaomSFvd4NUdQ9qMcEAC43kujbfjueTHpVapX1Kzq2n
+```
+
+然后再次启动：
+```sh
+> ./programs/steemd/steemd
+
+# 测试我们的API是否注册成功
+> curl -s http://127.0.0.1:8090/rpc -d '{"jsonrpc": "2.0", "method": "jsonrpc.get_methods", "params": {}, "id": 11}'
+
+# 调用我们的API
+> curl -s http://127.0.0.1:8090/rpc -d '{"jsonrpc": "2.0", "method": "demo_api.get_sum", "params": {"nums":[1,2,3,4,5]}, "id": 11}'
+# 得到：{"jsonrpc":"2.0","result":{"sum":15},"id":11}
+```
+验证完毕。
 
