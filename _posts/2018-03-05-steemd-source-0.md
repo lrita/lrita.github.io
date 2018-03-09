@@ -96,3 +96,7 @@ digraph {
 是：`steem::plugins::chain::chain_plugin`/`steem::plugins::p2p::p2p_plugin`/`steem::plugins::webserver::webserver_plugin`。
 
 然后进程开始启动，一次调动各个插件的`void startup()`方法。此后各个插件各司其职。
+
+## 自定义一个插件
+在[steemd 源码分析1 JSON RPC机制](https://lrita.github.io/2018/03/07/steemd-source-1/)这篇中，我们自己定
+义实现了一个插件，实现插件的各个细节也在这篇文章中有所讲述。
