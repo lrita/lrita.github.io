@@ -340,6 +340,7 @@ libraries/plugins/apis/demo_api/
 然后，我们开始填充这些文件，前面的原理分析中有很多微小的细节没有明说，这些微小的细节会在注释中说明：
 
 * `libraries/plugins/apis/demo_api/include/steem/plugins/demo_api/demo_api.hpp`文件
+
 ```cpp
 #pragma once
 #include <steem/plugins/json_rpc/utility.hpp>
@@ -386,6 +387,7 @@ FC_REFLECT( steem::plugins::demo::get_sum_return, (sum) )
 ```
 
 * `libraries/plugins/apis/demo_api/include/steem/plugins/demo_api/demo_api_plugin.hpp`文件
+
 ```cpp
 // 这是插件类声明的头文件，该文件名必须与plugin.json中的plugin_project字段和该插件目录
 // 中CMakeLists.txt的add_library声明的库名相同，如果3者不相同的话，在编译时，插件模板
@@ -427,6 +429,7 @@ class demo_api_plugin : public appbase::plugin<demo_api_plugin> {
 ```
 
 * `libraries/plugins/apis/demo_api/demo_api.cpp`文件
+
 ```cpp
 #include <steem/plugins/demo_api/demo_api.hpp>
 #include <steem/plugins/demo_api/demo_api_plugin.hpp>
@@ -473,6 +476,7 @@ DEFINE_LOCKLESS_APIS( demo_api, (get_sum) )
 ```
 
 * `libraries/plugins/apis/demo_api/CMakeLists.txt`文件
+
 ```cpp
 file(GLOB HEADERS "include/steem/plugins/demo_api/*.hpp")
 add_library( demo_api_plugin
@@ -502,6 +506,7 @@ install( TARGETS
 ```
 
 * `libraries/plugins/apis/demo_api/plugin.json`文件
+
 ```cpp
 {
   "plugin_name": "demo_api",
