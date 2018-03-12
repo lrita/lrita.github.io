@@ -259,9 +259,10 @@ void operator()( Plugin& plugin, const std::string& method_name, Method method, 
   // 一个lambda表达式，该表达式返回一个存储该API类的该方法返回对象的fc::variant
   // struct api_method_signature 对象，该对象有2个成员，分别是存储要注册方法输入和输出对象的fc::variant
   _json_rpc_plugin.add_api_method("account_by_key_api", "get_key_references"
-    [&account_by_key_api插件类的引用, account_by_key_api::get_key_references函数指针]( const fc::variant & args) -> fc::variant
+    [&account_by_key_api/*该类的引用*/, account_by_key_api::*get_key_references/*成员函数指针*/]( const fc::variant & args) -> fc::variant
     {
-      return fc::variant( account_by_key_api::get_key_references(args.as<get_key_references_args *>(), true) );
+      // 调用该类的成员函数
+      return fc::variant( account_by_key_api.*get_key_references(args.as<get_key_references_args *>(), true) );
     },
     api_method_signature{fc::variant( get_key_references_args() ), fc::variant( get_key_references_return() )}
   );
