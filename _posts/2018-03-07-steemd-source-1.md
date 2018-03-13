@@ -207,7 +207,9 @@ get_key_references_return account_by_key_api::get_key_references(
   }
 }
 ```
-其中`my->get_key_references`就是实际逻辑的实现函数，由用户自己实现。
+其中`my->get_key_references`就是实际逻辑的实现函数，由用户自己实现。如果用户的逻辑不依赖于`chain::database`
+的话，可以自行实现方法，因此可以使用[`DEFINE_API_IMPL`](https://github.com/steemit/steem/blob/42e2d95ec09d1695ec1b392d47a2e44612815cf0/libraries/plugins/json_rpc/include/steem/plugins/json_rpc/utility.hpp#L42-L43)，
+该宏帮助生成方法的函数签名。
 
 ## API的注册
 API类声明、实现好了后，`JSON RPC`模块并不知该API的存在，因此将API注册到`JSON RPC`的模块插件里。该注册
