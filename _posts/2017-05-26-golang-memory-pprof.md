@@ -1,7 +1,7 @@
 ---
 layout: post
 title: golang 内存分析/动态追踪
-categories: [golang]
+categories: [go]
 description: golang memory pprof
 keywords: golang pprof
 ---

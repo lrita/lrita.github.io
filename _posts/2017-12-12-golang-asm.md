@@ -1,7 +1,7 @@
 ---
 layout: post
 title: golang 汇编
-categories: [golang, go]
+categories: [go]
 description: golang go
 keywords: golang go
 ---
