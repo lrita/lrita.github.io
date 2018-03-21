@@ -27,15 +27,18 @@ keywords: c++ steemd steem blockchain
 提供的多种数据容器来实现。使用起来就像直接操作内存中的数据容器一样，只不过这些内存会通过`mmap`的形式持久
 化到某个文件中去。
 
-在`chainbase::database`中，每个表被称之为一个`Index`，在每个`Index`类实现中，需要有一个`static`变量
-`value_type::type_id`类唯一标识该`Index`，作为查找该表的索引，比如`IndexA`的`type_id`为1，`IndexB`的
-`type_id`为2，`type_id`的范围是`0~2^16`。在`chainbase::database`使用一个稀疏map来存储全部的`Index`，
-该稀疏map其实就是一个`std::vector<Index>`。之所以称之为稀疏map，因为`std::vector[type_id]`的位置上存
-储的就是对应的`Index`，因此``std::vector`不是每个位置都存储着`Index`，除非用户注册了2^16个`Index`。
+在`chainbase::database`中，每个表被称之为一个`MultiIndex`，在每个`MultiIndex`类实现中，需要有一个
+`static`变量`type_id`类唯一标识该`MultiIndex`，作为查找该表的索引，比如`IndexA`的`type_id`为1，`IndexB`的
+`type_id`为2，`type_id`的范围是`0~2^16`。在`chainbase::database`使用一个稀疏map来存储全部的`MultiIndex`，
+该稀疏map其实就是一个`std::vector<MultiIndex>`。之所以称之为稀疏map，因为`std::vector[type_id]`的位置上存
+储的就是对应的`MultiIndex`，因此``std::vector`不是每个位置都存储着`MultiIndex`，除非用户注册了2^16个`MultiIndex`。
 
-每个表`Index`其实都是一个多索引容器，因此`chainbase::database`形成了多级索引。`Index`主要通过[`boost::multi_index::multi_index_container`](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/index.html)
+每个表`MultiIndex`其实都是一个多索引容器，因此`chainbase::database`形成了多级索引。`MultiIndex`主要通过[`boost::multi_index::multi_index_container`](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/index.html)
 来实现，关于这个多索引容器如何使用可以参考[1](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/index.html)、[2](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/basics.html)、[3](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/indices.html)、[4](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/key_extraction.html)、[5](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/creation.html)、[6](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/techniques.html)、[7](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/examples.html)
 来了解。
+
+`MultiIndex`中存储的`Object`中必须拥有一个成员`chainbase::oid<Object> id`，这个`id`作为`Object`的主键，
+`oid`的意思为`Object ID`。
 
 例如，一个`book`表的实例为`book_index`：
 ```cpp
@@ -52,12 +55,15 @@ struct book : public chainbase::object<0, book> {
     int b = 1;
 };
 
+struct by_id{};
+
 typedef multi_index_container<
   book,                       // 容器中的元素
   indexed_by<                 // 声明用户所需的索引，indexed_by中可以包含多种索引，大概支持20个不同的索引
                               // indexed_by中的每一项被称之为index specifier。
      ordered_unique<identity<book> >,                         // sort by book::operator<
-     ordered_unique< member<book,book::id_type,&book::id> >,  // ordered_unique 声明使用的索引类型，从名
+     ordered_unique<tag<by_id>, member<book,book::id_type,&book::id> >,
+                                                              // ordered_unique 声明使用的索引类型，从名
                                                               // 称上就可以理解该索引的作用。除此之外还有：
                                                               // sequenced、random_access、hashed_unique、
                                                               // hashed_non_unique、ranked_unique、
@@ -67,6 +73,8 @@ typedef multi_index_container<
                                                               // 能。
                                                               // 该索引的意思为，按照book的id字段来进行排
                                                               // 序，顺序为std::less<book::id_type>
+                                                              // tag<by_id>的意思为，给该索引增加一个标识
+                                                              // 随后可以根据该标识来使用这个索引。
      ordered_non_unique< BOOST_MULTI_INDEX_MEMBER(book,int,a) >, // BOOST_MULTI_INDEX_MEMBER 是一个宏，其
                                                                  // 展开形式为member<book, int, &book::a>
      ordered_non_unique< BOOST_MULTI_INDEX_MEMBER(book,int,b) >
@@ -78,12 +86,13 @@ CHAINBASE_SET_INDEX_TYPE(book, book_index)
 ```
 如上面的例子，我们可以为`book`添加多种索引，索引的种类可以参考[Index types](http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/tutorial/indices.html)。
 但是`book`中并没有存在`type_id`这个表标识符，因为`book`继承自`chainbase::object`，`chainbase::object`是
-一个辅助基类，帮助生成`type_id`这个表标识符，其继承声明`chainbase::object<0, book>`中的第一个参数0，的意
-思就是生成的`type_id`这个表标识符的值为0。因此我们声明自己的表时，也不需要进行声明额外的成员，直接继承该
-辅助类即可。
+一个辅助基类，帮助生成`type_id`这个表标识符和`id_type`类型声明，其继承声明`chainbase::object<0, book>`中
+的第一个参数0，的意思就是生成的`type_id`这个表标识符的值为0。因此我们声明自己的表时，也不需要进行声明额外
+的成员，直接继承该辅助类即可。
 
 用户通过`chainbase`操作每个表中数据的过程是，先根据其对象中的`type_id`从`chainbase`内部的稀疏map中获取到
 对应的`book_index`，然后再根据`book_index`中声明的多种索引方式来操作`book`，用图像表述为：
+
 ![/images/posts/blockchain/chainbase_index.png](/images/posts/blockchain/chainbase_index.png)
 
 最后一句宏`CHAINBASE_SET_INDEX_TYPE(book, book_index)`的含义是，将`book`声明成`book_index`的别名，建立绑
@@ -129,7 +138,7 @@ public:
     // 否则没有任何影响，返回一个空session
     session start_undo_session( bool enabled );
 
-    // 干活最小的undo索引的变更号
+    // 获取最小的undo索引的变更号
     int64_t revision() const;
 
     // 对database中所有undo会话执行undo命令
@@ -147,7 +156,7 @@ public:
     // 对database中所有undo会话执行set_revision命令
     void set_revision( int64_t revision );
 
-    // 增加一张表，注册MultiIndexType类型的index
+    // 增加一张表，注册MultiIndexType类型的index，例如book_index
     template<typename MultiIndexType>
     void add_index();
 
@@ -157,11 +166,12 @@ public:
     // 获取剩余内存
     size_t get_free_memory() const;
 
-    // 判断MultiIndexType类型的index是否存在，去稀疏map中进行查找
+    // 判断MultiIndexType类型的index是否存在，去稀疏map中进行查找，例如book_index
     template<typename MultiIndexType>
     bool has_index() const;
 
     // 获取执行MultiIndexType类型的index，不可修改。如果该类型的index之前未进行注册，则会抛出异常
+    // 例如book_index
     template<typename MultiIndexType>
     const generic_index<MultiIndexType>& get_index() const;
 
@@ -169,55 +179,65 @@ public:
     template<typename MultiIndexType>
     generic_index<MultiIndexType>& get_mutable_index();
 
-    // 调用指定类型MultiIndexType的index的add_index_extension方法
+    // 调用指定类型MultiIndexType的index的add_index_extension方法，例如book_index
     template<typename MultiIndexType>
     void add_index_extension( std::shared_ptr< index_extension > ext );
     
-    // 获取指定类型MultiIndexType的Index表，然后根据ByIndex来获取子表。
+    // 获取指定类型MultiIndexType的Index表，然后根据tag<ByIndex>来获取该表的索引。
+    // 例如：get_index<book_index, by_id>()
     template<typename MultiIndexType, typename ByIndex>
     auto get_index() const;
 
-    // 获取指定类型MultiIndexType的Index表，然后根据ByIndex来获取字表，
+    // 根据索引tag来查找响应内部对象，CompatibleKey是查找时的比较器。
+    // 其会根据绑定关系，从ObjectType得到MultiIndexType，然后在该表下获取指定tag的的索引，
+    // 然后调用索引的find方法进行查找。未找到时返回nullptr。
+    // 索引的find方法是一个模板，支持多种查找方法，CompatibleKey可以是一个具体的类型，也
+    // 可以是一个仿函数。
+    // 例如：find<book, by_id, book::id_type>(1);
     template< typename ObjectType, typename IndexedByType, typename CompatibleKey >
     const ObjectType* find( CompatibleKey&& key ) const;
 
-    //
+    // 通过ObjectType的oid(主键)来查找该Object，前提是该Object对应的MultiIndex在声明时，建立
+    // oid的索引。未找到时返回nullptr。
     template< typename ObjectType >
     const ObjectType* find( oid< ObjectType > key = oid< ObjectType >() ) const;
 
-    //
+    // 调用find，为找到时抛出异常
     template< typename ObjectType, typename IndexedByType, typename CompatibleKey >
     const ObjectType& get( CompatibleKey&& key ) const;
 
-    //
+    // 调用find，为找到时抛出异常
     template< typename ObjectType >
     const ObjectType& get( const oid< ObjectType >& key = oid< ObjectType >() ) const
 
-    //
+    // 修改ObjectType对应表中obj对象，修改失败时抛出异常。会将修改前的对象记录在undo栈中。
+    // Modifier为一个仿函数，可以参考：
+    // http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/reference/ord_indices.html#modify
     template<typename ObjectType, typename Modifier>
     void modify( const ObjectType& obj, Modifier&& m );
 
-    //
+    // 删除ObjectType对应表中obj对象。会将修改前的对象记录在undo栈中。
     template<typename ObjectType>
     void remove( const ObjectType& obj );
 
-    //
+    // 在ObjectType对应的表中创建一个ObjectType对象，Constructor是ObjectType的构造器。
+    // 会将创建对象记录在undo栈中。
     template<typename ObjectType, typename Constructor>
     const ObjectType& create( Constructor&& con );
 
-    //
+    // 在持有database内部读锁的情况下，执行lambda
     template< typename Lambda >
     auto with_read_lock( Lambda&& callback, uint64_t wait_micro = 1000000 );
 
-    //
+    // 在持有database内部写锁的情况下，执行lambda
     template< typename Lambda >
     auto with_write_lock( Lambda&& callback, uint64_t wait_micro = 1000000 );
 
-    // 
+    // 对每个表执行extension
     template< typename IndexExtensionType, typename Lambda >
     void for_each_index_extension( Lambda&& callback ) const;
 
-    // 获取全部注册的Index列表
+    // 获取全部注册的MultiIndexType列表
     typedef vector<abstract_index*> abstract_index_cntr_t;
     const abstract_index_cntr_t& get_abstract_index_cntr() const;
 };
@@ -241,19 +261,25 @@ public:
 template<typename MultiIndexType>
 void add_index();
 ```
-该函数对`MultiIndexType`有一些要求，否则会实例化失败：
-* `uint16 MultiIndexType::value_type::type_id`必须存在，每个`MultiIndexType`的`type_id`必须不相同，因为
-该值会作为`database`中的主键来使用。
-* `MultiIndexType::value_type`的构造函数可以接受`database`提供的`allocator`，用于从`mmap`的内存上分配内
-存。
+这里的`MultiIndexType`就是前面原理中举例的`book_index`，其要满足原理中讲的那些要求。
 
 在该函数中，其会从`mmap`的内存中分配，构造出[`generic_index<MultiIndexType>`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L217-L628)
-该类是`Index`表的具体实现。
+该类是`MultiIndexType`的包装，在`generic_index`实现了很多`index`的基本操作，这个留在后面再讲。
 
-```cpp
-idx_ptr = _segment->find_or_construct< index_type >( type_name.c_str() )( index_alloc( _segment->get_segment_manager() ) );
-```
-然后将`generic_index<MultiIndexType>`存在在容器类[`index`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L662-L666)
-中，然后将其存放到[`_index_map`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L1043-L1046)
-中。`_index_map`就是[实现原理](#实现原理)中提到的稀疏map，同时对`MultiIndexType`原型的要求，也在之前描述
-过了。
+该函数会将`generic_index<MultiIndexType>`再用[`index`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L662-L666)
+包装成`index<generic_index<MultiIndexType>>`，然后存储在`chainbase`的稀疏map中。
+
+#### `with_read_lock`/`with_write_lock`
+这2个方法的意义为在持有`database`中读写锁的情况下执行一些回调函数，意为同步一些并发处理的逻辑。但是这2个
+方法本质上都是完全错误的实现。
+
+首先，`database`中的读写锁采用了`boost::interprocess::interprocess_sharable_mutex`的实现，并且`database`
+中的数据结构都是跨进程的，并且文档中也说明了[该实现是跨进程](https://github.com/steemit/steem/tree/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase#features)
+的。但是该锁并没有分配在进程间共享内存上，也就是说该锁并没有跨进程并发控制的能力。此处应该是一个bug。
+
+其次，`wait_micro`参数不为0时，其会调用等待超时LOCK的逻辑，当一个线程等待获取锁超时时，其会跳过当前的锁，
+去获取另外一个新锁...，这是什么狗屁逻辑，作者的初衷是好的，避免一个线程获取锁后意外退出，造成该锁不会被
+释放，从而死锁。但是这个实现实在过于粗暴。其默认值为1秒钟，如果一个进程持有锁超过1秒钟，则该方法的并发
+控制会完全失效，`database`中的内存分配器等实现都是依赖外部并发控制的。而且很多操作会涉及磁盘等慢设备，偶
+尔超过1秒也是存在可能性的。这点需要注意，可能你某次发现`database`意外损坏就是可能由于其并发处理问题引起
+的。
