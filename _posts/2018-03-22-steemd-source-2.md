@@ -243,7 +243,7 @@ public:
 };
 ```
 
-#### database open
+#### open
 `steem::chainbase::database`使用了默认的构造函数，因此该类实例化时，并不会有任何作用，其启动入口为[`database::open`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/src/chainbase.cpp#L33-L68)。
 基本流程就是：
 1. 创建database数据目录，然后在目录中创建数据库持久化文件`shared_memory.bin`，然后将该文件扩容到指定大小
@@ -253,7 +253,8 @@ public:
 3. 然后存储一个[`environment_check`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/src/chainbase.cpp#L8-L31)
 用以记录该数据库生成的环境，用以启动时校验，因为从设计上，数据库文件能不能直接搬运的。
 
-#### database add\_index
+#### add\_index
+
 `add_index`向`database`中添加一张表（这里的`index`就相当于SQL中的表），并且相同的表不能重复添加，否则会
 抛出异常。其原型为：
 
@@ -269,7 +270,13 @@ void add_index();
 该函数会将`generic_index<MultiIndexType>`再用[`index`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L662-L666)
 包装成`index<generic_index<MultiIndexType>>`，然后存储在`chainbase`的稀疏map中。
 
-#### `with_read_lock`/`with_write_lock`
+实例：
+```cpp
+db.add_index< book_index >();
+db.add_index< book_index >(); // 第二次添加索引会抛出std::logic_error异常
+```
+
+#### with\_read\_lock和with\_write\_lock
 这2个方法的意义为在持有`database`中读写锁的情况下执行一些回调函数，意为同步一些并发处理的逻辑。但是这2个
 方法本质上都是完全错误的实现。
 
@@ -283,3 +290,19 @@ void add_index();
 控制会完全失效，`database`中的内存分配器等实现都是依赖外部并发控制的。而且很多操作会涉及磁盘等慢设备，偶
 尔超过1秒也是存在可能性的。这点需要注意，可能你某次发现`database`意外损坏就是可能由于其并发处理问题引起
 的。
+
+#### create
+```cpp
+// 在ObjectType对应的表中创建一个ObjectType对象，Constructor是ObjectType的构造器。
+// 会将创建对象记录在undo栈中。
+template<typename ObjectType, typename Constructor>
+const ObjectType& create( Constructor&& con );
+```
+
+实例：
+```cpp
+const auto& new_book = db.create<book>([](book& b) {
+  b.a = 3;
+  b.b = 4;
+});
+```
