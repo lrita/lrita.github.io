@@ -109,7 +109,7 @@ CHAINBASE_SET_INDEX_TYPE(book, book_index)
 能产生损坏。
 * 容量有限：其采用`mmap`机制实现内存的持久化，因此其存储容量很难超过机器内存的容量。
 
-## 代码分析
+## database api
 `chainbase::database`基本方法如下所述，在注释中有简单说明，如果内容比较多的函数，在更下面有详细的说明：
 
 ```cpp
@@ -299,10 +299,39 @@ template<typename ObjectType, typename Constructor>
 const ObjectType& create( Constructor&& con );
 ```
 
-实例：
+示例：
 ```cpp
 const auto& new_book = db.create<book>([](book& b) {
   b.a = 3;
   b.b = 4;
+});
+```
+
+#### get
+```cpp
+// 调用find，为找到时抛出异常
+template< typename ObjectType >
+const ObjectType& get( const oid< ObjectType >& key = oid< ObjectType >() ) const
+```
+
+示例：
+```cpp
+// 获取oid==0的book对象
+const auto& copy_new_book = db2.get( book::id_type(0) );
+```
+
+#### modify
+```cpp
+// 修改ObjectType对应表中obj对象，修改失败时抛出异常。会将修改前的对象记录在undo栈中。
+// Modifier为一个仿函数，可以参考：
+// http://www.boost.org/doc/libs/1_66_0/libs/multi_index/doc/reference/ord_indices.html#modify
+template<typename ObjectType, typename Modifier>
+void modify( const ObjectType& obj, Modifier&& m );
+```
+示例：
+```cpp
+db.modify( new_book, [&]( book& b ) {
+  b.a = 5;
+  b.b = 6;
 });
 ```
