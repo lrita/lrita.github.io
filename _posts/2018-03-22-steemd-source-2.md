@@ -12,7 +12,6 @@ keywords: c++ steemd steem blockchain
 `chain`插件的源码主要位于[`libraries/chain`](https://github.com/steemit/steem/tree/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chain)
 和[`libraries/chainbase`](https://github.com/steemit/steem/tree/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase)中。
 
-# chainbase
 `chainbase`是符合区块链应用需求的一个事务型数据库。`steemd`中的`chainbase`FORK自[GolosChain/chainbase](https://github.com/GolosChain/chainbase)。
 
 ## chainbase特性
@@ -100,6 +99,10 @@ CHAINBASE_SET_INDEX_TYPE(book, book_index)
 相关操作，减少用户的心智负担，因为要让用户搞清，什么时候需要用到`book`，什么时候需要用到`book_index`，确
 实比较麻烦。在API层面上，用户基本上只需要用到`book`。
 
+在`database`中，还会使用[`generic_index`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L211-L568)
+对`MultiIndex`进行封装，例如`generic_index<book_index>`。`generic_index`这个封装主要实现了事务、自增主键
+等逻辑。这部分逻辑比较多，因此将`generic_index`逻辑分散在`database`的API中进行分析。
+
 ## chainbase缺陷
 * 缺乏并发控制：其内部没有并发控制，需要用户在外部自己维护并发问题，如果跨进程共享，用户需要通过跨进程
 锁来保护。
@@ -132,28 +135,36 @@ public:
     void set_require_locking( bool enable_require_locking );
 
     // session是abstract_session的一个容器，用来存储实际的undo会话(事务)
+    // 后面再讲
     class session;
 
     // 启动一个undo会话(事务)，如果enabled=true，实际启动一个undo会话，
-    // 否则没有任何影响，返回一个空session
+    // 否则没有任何影响，返回一个空session。
+    // 与事务相关，留在后面再将
     session start_undo_session( bool enabled );
 
     // 获取最小的undo索引的变更号
+    // 与事务相关，留在后面再将
     int64_t revision() const;
 
     // 对database中所有undo会话执行undo命令
+    // 与事务相关，留在后面再将
     void undo();
 
     // 合并临近的变更
+    // 与事务相关，留在后面再将
     void squash();
 
     // 对database中所有undo会话执行提交命令
+    // 与事务相关，留在后面再将
     void commit( int64_t revision );
 
     // 对database中所有undo会话执行undo_all命令
+    // 与事务相关，留在后面再将
     void undo_all();
 
     // 对database中所有undo会话执行set_revision命令
+    // 与事务相关，留在后面再将
     void set_revision( int64_t revision );
 
     // 增加一张表，注册MultiIndexType类型的index，例如book_index
@@ -298,6 +309,10 @@ db.add_index< book_index >(); // 第二次添加索引会抛出std::logic_error�
 template<typename ObjectType, typename Constructor>
 const ObjectType& create( Constructor&& con );
 ```
+该函数会先找到`ObjectType`对应的`generic_index<MultiIndexType>`表，然后调用其[`emplace`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L235-L257)
+方法来创建出`ObjectType`。在该函数中，会将`ObjectType`内置的主键`chainbase::oid<Object> id`加1，这样保证
+该表中每个`ObjectType`的主键值都不同，也避免用户在外部维护这段逻辑。然后调用[`generic_index<MultiIndexType>::on_create`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L548-L553)
+将该次创建记录在启动的undo事务中。
 
 示例：
 ```cpp
@@ -328,6 +343,11 @@ const auto& copy_new_book = db2.get( book::id_type(0) );
 template<typename ObjectType, typename Modifier>
 void modify( const ObjectType& obj, Modifier&& m );
 ```
+该函数会先找到`ObjectType`对应的`generic_index<MultiIndexType>`表，然后调用其[`modify`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L260-L264)
+方法来修改对应的`ObjectType`。在该函数中，其会先调用[`generic_index<MultiIndexType>::on_modify`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L511-L524)
+将修改前的`ObjectType`存储在undo事务中，然后再调用容器`boost::multi_index::multi_index_container::modify`，
+修改对应的`ObjectType`。
+
 示例：
 ```cpp
 db.modify( new_book, [&]( book& b ) {
@@ -335,3 +355,94 @@ db.modify( new_book, [&]( book& b ) {
   b.b = 6;
 });
 ```
+
+#### remove
+```cpp
+// 删除ObjectType对应表中obj对象。会将修改前的对象记录在undo栈中。
+template<typename ObjectType>
+void remove( const ObjectType& obj );
+```
+
+该函数会先找到`ObjectType`对应的`generic_index<MultiIndexType>`表，然后调用其[`remove`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L266-L269)
+方法。在该函数中，其会先调用[`generic_index<MultiIndexType>::on_remove`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L526-L546)
+将修改前的`ObjectType`存储在undo事务中，然后调用`boost::multi_index::multi_index_container::erase`将其删除。
+
+## 事务支持
+`chainbase::database`内部使用`generic_index<MultiIndexType>`实现了对写操作事务性的支持。首先列出该实现的提
+供的特性：
+* `database`内部每个表`generic_index<MultiIndexType>`支持一个全局事务。
+* 该事务只是简单支持了回滚操作。
+* 没有任何隔离性
+
+在`generic_index<MultiIndexType>`存储着2个成员：
+* `_revision`事务号，每开启一个新的事务该值加1，然后分配给新开启的事务
+* `_next_id`主键id，每创建一个`ObjectType`该值加1，然后分配给新创建的对象
+
+用户可以调用
+
+```cpp
+auto session = database::start_undo_session(true);
+```
+
+来开启一个undo事务。该方法会调用`database`中每一个表的[`generic_index<MultiIndexType>::start_undo_session`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L328-L337)
+方法，该方法创建一个新的`session`，同时再`generic_index<MultiIndexType>`内部的[undo_state栈](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L555)
+上压入一个对象。[`undo_state`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L164-L186)
+用以记录在该`session`被创建后，数据的变更情况。
+
+在用户创建`session`后，对`chainbase::database`中该表`generic_index<MultiIndexType>`的每一个写操作会触发
+回调`on_create`、`on_modify`和`on_remove`，这几个回调函数会将每个`ObjectType`的变更情况记录在`undo_state栈`
+上。
+
+用户也可以同时创建多个`session`。
+```cpp
+auto session0 = database::start_undo_session(true);
+/* do something ... */
+auto session1 = database::start_undo_session(true);
+```
+
+`session`在的实际作用与[`std::lock_guard`](http://zh.cppreference.com/w/cpp/thread/lock_guard)实现相似，
+使用[RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)机制构建一个作用域控制
+类。`session`主要提供3个方法[`push()`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L298-L299)、[`squash()`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L300-L301)、[`undo()`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L302)
+，如果`session`没有被调用`push()`方法，则`session`析构时，会自动调用`generic_index<MultiIndexType>`的
+`undo()`方法，撤销用户之前的修改。
+
+`generic_index<MultiIndexType>`提供了一些关于事务的API分别提供`session`和`database`调用：
+#### undo
+[`void undo()`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L343-L372)
+撤销`undo_state栈`栈顶的`undo_state`中记录的全部变更操作。同时回滚前面提到的`_revision`和`_next_id`。
+
+#### undo\_all
+[`undo_all`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L493-L500)
+撤销`undo_state栈`中全部的变更操作。
+
+#### revision
+[`int64_t revision()`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L340)
+返回当前的`_revision`。
+
+#### squash
+[`void squash()`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L374-L480)
+合并`undo_state栈`末尾2个`undo_state`中的全部变更记录。
+比如前面举例的`session0`和`session1`同时存在时，会有2个`undo_state`，此时调用`squash`，将其合并。
+
+但是这个方法在实现上也存在bug。
+```cpp
+auto session0 = database::start_undo_session(true);
+// do modify 0
+{
+  auto session1 = database::start_undo_session(true);
+  // do modify 1
+  auto session2 = database::start_undo_session(true);
+  // do modify 2
+  db.squash(); // 合并session1和session2
+}
+// 从设计思想，此处应该只回滚掉modify 1和2才是正确的实现，
+// 不幸的，此处实际上会回滚掉modify 1,2,3
+```
+
+#### commit
+[`void commit( int64_t revision )`](https://github.com/steemit/steem/blob/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase/include/chainbase/chainbase.hpp#L482-L491)
+提交修订号小于revision的全部修改，这部分修改不再会被回滚。
+
+## 总结
+以上就是对`libraries/chainbase`流水账般的分析，在`steemd`中并没有直接使用了`chainbase::database`，而是
+又封装了一层，这个留在下篇进行分析。
