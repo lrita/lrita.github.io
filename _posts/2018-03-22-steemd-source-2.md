@@ -436,7 +436,7 @@ auto session0 = database::start_undo_session(true);
   db.squash(); // 合并session1和session2
 }
 // 从设计思想，此处应该只回滚掉modify 1和2才是正确的实现，
-// 不幸的，此处实际上会回滚掉modify 1,2,3
+// 不幸的，此处实际上会回滚掉modify 0,1,2
 ```
 
 #### commit
