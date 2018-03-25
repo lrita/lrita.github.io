@@ -6,12 +6,6 @@ description: c++ steem blockchain
 keywords: c++ steemd steem blockchain
 ---
 
-`chain`插件是`steemd`中最重要的插件之一，涉及到的功能也比较复杂，基本上大多数API都依赖于该插件。本篇
-就主要来分析该插件。
-
-`chain`插件的源码主要位于[`libraries/chain`](https://github.com/steemit/steem/tree/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chain)
-和[`libraries/chainbase`](https://github.com/steemit/steem/tree/71cc1a88303a6d527181070eee2bdc39ee6298f3/libraries/chainbase)中。
-
 `chainbase`是符合区块链应用需求的一个事务型数据库。`steemd`中的`chainbase`FORK自[GolosChain/chainbase](https://github.com/GolosChain/chainbase)。
 
 ## chainbase特性
