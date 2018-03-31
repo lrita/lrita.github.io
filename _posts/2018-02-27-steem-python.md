@@ -96,7 +96,7 @@ MacOS上在编译时需要注意设计[openssl的引用路径](https://github.co
 --no-broadcast, -d  当操作到需要网络发送数据的命令时，不实际发送，模拟一下
 --no-wallet, -p       Do not load the wallet
 --unsigned, -x        Do not try to sign the transaction
---expires EXPIRES, -e EXPIRES 事务广播过期时间
+--expires EXPIRES, -e EXPIRES 交易广播过期时间
 --verbose VERBOSE, -v VERBOSE 设置日志输出等级
 ```
 
@@ -139,6 +139,19 @@ VI = 随机字符串(32byte)   # 了解下AES算法，就知道VI是干嘛的了
 每个用户一共有4组公钥/私钥，其分别为`Owner key`/`Active key`/`Posting key`/`Memo key`。这些都可以存储于
 本地的钱包中，每种都有不同的权限范围，下面有一个简单的图可以参考，详细的介绍可以参考[A User's Guide to the Different Steem Keys or Passwords](https://steemit.com/steemit-guides/@pfunk/a-user-s-guide-to-the-different-steem-keys-or-passwords)：
 ![/images/posts/steem/steem-key.png](/images/posts/steem/steem-key.png)
+
+## 交易
+事实上区块链就是一个[RSM](https://lrita.github.io/2018/03/27/blockchain-and-rsm/)，使用P2P的方式在每个
+节点间同步区块数据，在同步的过程中使用了一些共识算法(PoW/PoS/BFT)、区块交易等。区块上存储的就是用户的每
+个交易数据。
+
+这里的交易数据不一定就是与资金相关的行为，不同的区块链应用可以对自行定义。这里的交易数据本质上就是一条
+日志。对该日志/交易数据的定义被称之为`协议`。比如在`steem`中，发帖、点赞等行为都封装成一个交易进行，这
+就是`steem`中的`协议`，注意，这里`协议`不是网络协议。
+
+后面可以看到，用户的很多行为操作都会被封装成一个交易在`steem`网络中进行广播，然后`steem`节点会收集这些
+交易广播，然后进行校验，没问题的会在指定时间内被打包成一个区块，然后同步到`steem`网络中。经过共识算法确
+认的区块将成为`steem`网络中的永久数据。
 
 ## 操作命令
 
@@ -695,8 +708,8 @@ API来获取博文内容，其实这一步完全不需要获取博文内容，�
         ... 省略一些
 }
 ```
-然后[广播一个`Vote`的事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L377-L385)
-，成功即完成该次点赞。后面还有很多操作都与`steem`的事务机制有关，随后再详细分析。
+然后[广播一个`Vote`的交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L377-L385)
+，成功即完成该次点赞。后面还有很多操作都与`steem`的交易机制有关，随后再详细分析。
 
 #### downvote
 跟前面的`upvote`功能相同，只不过发送的权重为负数。
@@ -709,7 +722,7 @@ API来获取博文内容，其实这一步完全不需要获取博文内容，�
 > steempy transfer icycrystal4 1 STEEM
 ```
 
-该命令[广播一个`Transfer`的事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L662-L674)
+该命令[广播一个`Transfer`的交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L662-L674)
 ，成功即完成该次转账。
 
 #### powerup
@@ -720,7 +733,7 @@ API来获取博文内容，其实这一步完全不需要获取博文内容，�
 > steempy powerup 1
 ```
 
-该命令[广播一个`TransferToVesting`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L722-L733)
+该命令[广播一个`TransferToVesting`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L722-L733)
 ，成功即完成该次转换。
 
 #### powerdown
@@ -730,19 +743,19 @@ API来获取博文内容，其实这一步完全不需要获取博文内容，�
 # 将本地默认账户的1 STEEM POWER 转回STEEM
 > steempy powerdown 1
 ```
-该命令[广播一个`WithdrawVesting`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L691-L700)
+该命令[广播一个`WithdrawVesting`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L691-L700)
 ，成功即完成转换。
 
 #### powerdownroute
 Setup a powerdown route
 
-该命令[广播一个`SetWithdrawVestingRoute`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1063-L1071)
+该命令[广播一个`SetWithdrawVestingRoute`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1063-L1071)
 ，成功即完成转换。
 
 #### convert
 将一定量的`SBD`转为`STEEM`，关于`SBD`是随后再分析。
 
-该命令[广播一个`Convert`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L756-L767)
+该命令[广播一个`Convert`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L756-L767)
 ，成功即完成转换。
 
 #### balance
@@ -833,11 +846,11 @@ API。该API负责查询一些用户的全局属性信息。上行数据为：
 #### allow
 授权别人使用他自己的Key可以行驶你的权限，比如active、posting等权限。
 
-该命令[广播一个`AccountUpdate`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1132-L1143)
+该命令[广播一个`AccountUpdate`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1132-L1143)
 ，成功即完成授权。
 
 #### disallow
-取消上面的授权，发送的相同的事务，参数不太一样。
+取消上面的授权，发送的相同的交易，参数不太一样。
 
 #### importaccount
 通过使用账户密码来往钱包中导入一个账户。账户的私钥是通过账户密码来生成的。该功能相当于用账户密码
@@ -846,28 +859,28 @@ API。该API负责查询一些用户的全局属性信息。上行数据为：
 #### updatememokey
 修改用的`memo key`。
 
-该命令[广播一个`AccountUpdate`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1220-L1243)
+该命令[广播一个`AccountUpdate`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1220-L1243)
 ，成功即完成授权。
 
 #### approvewitness
 给一个`witness`进行投票，同时将该`witness`记录在自己的用户信息的`approved witnesses`中。
 
-该命令[广播一个`AccountWitnessVote`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1245-L1264)
+该命令[广播一个`AccountWitnessVote`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1245-L1264)
 ，成功即完成。
 
 #### disapprovewitness
 移除自己对一个`witness`的投票，同时将该`witness`从在自己的用户信息的`approved witnesses`中删除。
 
-该命令[广播一个`AccountWitnessVote`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1245-L1264)
+该命令[广播一个`AccountWitnessVote`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1245-L1264)
 ，成功即完成。
 
 #### sign
-从本地文件读取数据作为一个事务，并对其进行签名。将签名后的事务输出在终端。
+从本地文件读取数据作为一个交易，并对其进行签名。将签名后的交易输出在终端。
 
 _这个应该是一个非常底层的方法。_
 
 #### broadcast
-从本地文件读取数据作为一个事务，将其广播出去。
+从本地文件读取数据作为一个交易，将其广播出去。
 
 _这个应该是一个非常底层的方法。_
 
@@ -878,13 +891,13 @@ _该命令为实现。_
 从内部市场中购买以一定的加个购买一些货币。这部分涉及货币交易的又[Dex](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/dex.py#L10-L287)
 来实现其功能。
 
-该命令[广播一个`LimitOrderCreate`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/dex.py#L145-L205)
+该命令[广播一个`LimitOrderCreate`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/dex.py#L145-L205)
 ，成功即完成。
 
 #### sell
 跟`buy`功能相似，以一定的加个卖出一些货币。
 
-该命令[广播一个`LimitOrderCreate`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/dex.py#L207-L266)
+该命令[广播一个`LimitOrderCreate`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/dex.py#L207-L266)
 ，成功即完成。
 
 #### cancel
@@ -893,13 +906,13 @@ _该命令为实现。_
 #### resteem
 转发（还是修改作者？这个命令和调用的方法不知所云，这个是目前设计最混乱的一个API）一篇已经存在的博文。
 
-该命令广播一个含有"reblog"字段的id为`follow`的[`CustomJson`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1307-L1327)
+该命令广播一个含有"reblog"字段的id为`follow`的[`CustomJson`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1307-L1327)
 ，成功即完成。
 
 #### follow
 关注一个账户。
 
-该命令广播一个含有"follow"字段的id为"follow"的[`CustomJson`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1342-L1364)
+该命令广播一个含有"follow"字段的id为"follow"的[`CustomJson`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1342-L1364)
 ，成功即完成。
 
 #### unfollow
@@ -908,7 +921,7 @@ _该命令为实现。_
 #### setprofile
 更新一个账户的`profile`，将一些K-V值存储于该账户的账户详情的`json_metadata`字段中。
 
-该命令[广播一个`AccountUpdate`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1366-L1385)
+该命令[广播一个`AccountUpdate`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L1366-L1385)
 ，成功即完成。
 
 #### delprofile
@@ -922,16 +935,16 @@ _该命令为实现。_
 #### witnesscreate
 创建一个`witness`，需要一定额度的注册费。
 
-然后发起一个[`WitnessUpdate`事务](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L967-L1003)。
+然后发起一个[`WitnessUpdate`交易](https://github.com/steemit/steem-python/blob/f3db5e3d9bb6d98a8e2286c91b050813f3311dcc/steem/commit.py#L967-L1003)。
 
 ## 类结构关系
 `steem-python`该项目将各个相似的功能分别聚合成一个类，但是这些类之间没有明显的派生关系，类之间大量通过
 全局变量来进行解耦划分。
 ![images/posts/steem/steempy.png](/images/posts/steem/steempy.png)
 
-## 广播事务
+## 广播交易
 从上面的操作命令可以看出，`steempy`除了一些本地操作外，没有什么核心的逻辑，主要的行为就是向主链节点发送
-事务的广播。那我们先简单讲一下这个广播、事务和`steem`主链的关系。
+交易的广播。那我们先简单讲一下这个广播、交易和`steem`主链的关系。
 
 待续...
 
