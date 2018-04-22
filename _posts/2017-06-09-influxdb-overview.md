@@ -6,6 +6,7 @@ description: database influxdb
 keywords: database influxdb
 ---
 
+# 本来想开坑把这个写一写，但是一直没有时间完成，只能先搁置了，下面的很多内容已经失效了。
 # influxdb
 [influxdb](https://github.com/influxdata/influxdb) 是个比较有名的时序数据库，相关的简介
 在网上已经比较多了，再次就不在赘述了。相关的部署、操作相关的可以通过搜索找到。
