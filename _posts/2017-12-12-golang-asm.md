@@ -74,7 +74,7 @@ go 汇编中有4个核心的伪寄存器，这4个集群器是编译器用来维
 实际上就是在体系结构的知识中常见的`pc`寄存器，在x86平台下对应`ip`寄存器，amd64上则是`rip`。除了个别跳转
 之外，手写代码与`PC`寄存器打交道的情况较少。
 
-![images/posts/go/go-asm-pc-jump.png](images/posts/go/go-asm-pc-jump.png)
+![images/posts/go/go-asm-pc-jump.png](/images/posts/go/go-asm-pc-jump.png)
 
 ###### SP
 `SP`是栈指针寄存器，指向当前函数栈的栈顶，通过`symbol+offset(SP)`的方式使用。offset 的合法取值是
