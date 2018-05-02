@@ -729,6 +729,236 @@ func xxx() int {
 }
 ```
 
+### c2goasm
+当我们需要做一些密集的数列运算或实现其他算法时，我们可以使用先进CPU的向量扩展指令集进行加速，如`sse4_2/avx/avx2/avx-512`等。有些人觉得通常可以遇不见这样的场景，其实能够用到这些的场景还是很多的。比如，我们常用的监控采集[go-metrics](https://github.com/rcrowley/go-metrics)库，其中就有很多可以优化的地方，如[SampleSum](https://github.com/rcrowley/go-metrics/blob/d932a24a8ccb8fcadc993e5c6c58f93dac168294/sample.go#L374-L381)、[SampleMax](https://github.com/rcrowley/go-metrics/blob/d932a24a8ccb8fcadc993e5c6c58f93dac168294/sample.go#L235-L247)、[SampleMin](https://github.com/rcrowley/go-metrics/blob/d932a24a8ccb8fcadc993e5c6c58f93dac168294/sample.go#L257-L269)这些函数都可以进行加速。
+
+但是，虽然这些方法很简单，但是对于汇编基础很弱的人来说，手写这些`sse4_2/avx/avx2/avx-512`指令代码，仍然是很困难的。但是，我们可以利用`clang/gcc`这些深度优化过的C语言编译器来帮我们生成对于的汇编代码。
+
+所幸，这项工作已经有人帮我们很好的完成了，那就是[c2goasm](https://github.com/minio/c2goasm)。`c2goasm`可以将C/C++编译器生成的汇编代码转换为golang汇编代码。在这里，我们可以学习该工具如何使用。它可以帮助我们在代码利用上`sse4_2/avx/avx2/avx-512`等这些先进指令。但是这些执行需要得到CPU的支持。因此我们先要判断使用的CPU代码是否支持。
+
+注意`c2goasm`中其中有很多默认规则需要我们去遵守：
+* 我们先需要使用`clang`将c源文件编译成汇编代码`clang_c.s`（该文件名随意）；
+* 然后我们可以使用`c2goasm`将汇编代码`clang_c.s`转换成go汇编源码`xxx.s`；
+* 我们每使用`c2goasm`生成一个go汇编文件`xxx.s`之前，我们先添加一个对应的`xxx.go`的源码文件，其中需要包含`xxx.s`中函数的声明。
+* 当c源码或者`clang_c.s`源码中函数名称为`func_xxx`时，经过`c2goasm`转成的汇编函数会增加`_`前缀，变成`_func_xxx`，因此在`xxx.go`中的函数声明为`_func_xxx`。要求声明的`_func_xxx`函数的入参个数与原来C源码中的入参个数相等，且为每个64bit大小。此时go声明函数中需要需要使用`slice`/`map`时，需要进行[额外的转化](https://github.com/lrita/c2goasm-example/blob/63792901a050e7ff24208c7759d6e0463f23ffeb/sample_avx2_amd64.go#L14-L17)。如果函数有返回值，则声明对应的go函数时，返回值必须为`named return`，即返回值需要由`()`包裹，否则会报错：`Badly formatted return argument ....`
+* 如果我们需要生成多种指令的go汇编实现时，我们需要实现对应的多个c函数，因此我们可以使用c的[宏](https://github.com/lrita/c2goasm-example/blob/63792901a050e7ff24208c7759d6e0463f23ffeb/lib/sample.c#L3-L11)辅助我们声明对应的c函数，避免重复的书写。
+
+在linux上，我们可以使用命令`cat /proc/cpuinfo |grep flags`来查看CPU支持的指令集。但是在工作环境中，我们的代码需要在多个环境中运行，比如开发环境、和生产环境，这些环境之间可能会有很大差别，因此我们希望我们的代码可以动态支持不同的CPU环境。这里，我们可以用到[intel-go/cpuid](https://github.com/intel-go/cpuid)，我们可以实现多个指令版本的代码，然后根据运行环境中CPU的支持情况，选择实际实行哪一段逻辑：
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/intel-go/cpuid"
+)
+
+func main() {
+	fmt.Println("EnabledAVX", cpuid.EnabledAVX)
+	fmt.Println("EnabledAVX512", cpuid.EnabledAVX512)
+	fmt.Println("SSE4_1", cpuid.HasFeature(cpuid.SSE4_1))
+	fmt.Println("SSE4_2", cpuid.HasFeature(cpuid.SSE4_2))
+	fmt.Println("AVX", cpuid.HasFeature(cpuid.AVX))
+	fmt.Println("AVX2", cpuid.HasExtendedFeature(cpuid.AVX2))
+}
+```
+
+然后，我们可以先使用C来实现这3个函数：
+```c
+#include <stdint.h>
+/* 我们要实现3中指令的汇编实现，因此我们需要生成3个版本的C代码，此处使用宏来辅助添加后缀，避免生成的函数名冲突 */
+#if defined ENABLE_AVX2
+#define NAME(x) x##_avx2
+#elif defined ENABLE_AVX
+#define NAME(x) x##_avx
+#elif defined ENABLE_SSE4_2
+#define NAME(x) x##_sse4_2
+#endif
+
+int64_t NAME(sample_sum)(int64_t *beg, int64_t len) {
+    int64_t sum = 0;
+    int64_t *end = beg + len;
+    while (beg < end) {
+        sum += *beg++;
+    }
+    return sum;
+}
+
+int64_t NAME(sample_max)(int64_t *beg, int64_t len) {
+    int64_t max = 0x8000000000000000;
+    int64_t *end = beg + len;
+	if (len == 0) {
+        return 0;
+    }
+    while (beg < end) {
+        if (*beg > max) {
+            max = *beg;
+        }
+        beg++;
+    }
+    return max;
+}
+
+int64_t NAME(sample_min)(int64_t *beg, int64_t len) {
+    if (len == 0) {
+        return 0;
+    }
+    int64_t min = 0x7FFFFFFFFFFFFFFF;
+    int64_t *end = beg + len;
+    while (beg < end) {
+        if (*beg < min) {
+            min = *beg;
+        }
+        beg++;
+    }
+    return min;
+}
+```
+
+然后使用`clang`生成三中指令的汇编代码：
+```sh
+clang -S -DENABLE_SSE4_2 -target x86_64-unknown-none -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -O3 -fno-builtin -ffast-math -msse4 lib/sample.c -o lib/sample_sse4.s
+clang -S -DENABLE_AVX -target x86_64-unknown-none -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -O3 -fno-builtin -ffast-math -mavx lib/sample.c -o lib/sample_avx.s
+clang -S -DENABLE_AVX2 -target x86_64-unknown-none -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -O3 -fno-builtin -ffast-math -mavx2 lib/sample.c -o lib/sample_avx2.s
+```
+
+_注意_:此处目前有一个待解决的问题[issues8](https://github.com/minio/c2goasm/issues/8)，如果谁指定如何解决，请帮助我一下。使用`clang`生成的AVX2汇编代码，其中局部变量`0x8000000000000000`/`0x7FFFFFFFFFFFFFFF`会被分片到`RODATA`段，并且使用32byte对其。使用`c2goasm`转换时，会生成一个很大的全局变量(几个G...，此处会运行很久)。目前的解决方式是，将生成
+```asm
+.LCPI1_0:
+	.quad	-9223372036854775808    # 0x8000000000000000
+	.section	.rodata,"a",@progbits
+	.align	32
+.LCPI1_1:
+	.long	0                       # 0x0
+	.long	2                       # 0x2
+	.long	4                       # 0x4
+	.long	6                       # 0x6
+	.zero	4
+	.zero	4
+	.zero	4
+	.zero	4
+	.text
+	.globl	sample_max_avx2
+```
+改为：
+```asm
+.LCPI1_0:
+        .quad   -9223372036854775808    # 0x8000000000000000
+        .quad   -9223372036854775808    # 0x8000000000000000
+        .quad   -9223372036854775808    # 0x8000000000000000
+        .quad   -9223372036854775808    # 0x8000000000000000
+        .section        .rodata,"a",@progbits
+.LCPI1_1:
+        .long   0                       # 0x0
+        .long   2                       # 0x2
+        .long   4                       # 0x4
+        .long   6                       # 0x6
+        .zero   4
+        .zero   4
+        .zero   4
+        .zero   4
+        .text
+        .globl  sample_max_avx2
+        .align  16, 0x90
+        .type   sample_max_avx2,@function
+```
+另一处同理，具体修改后的结果为：[sample_avx2.s](https://github.com/lrita/c2goasm-example/blob/63792901a050e7ff24208c7759d6e0463f23ffeb/lib/sample_avx2.s)
+
+回归正题，添加对应的go函数声明，我们要生成的三个go汇编文件为：`sample_sse4_amd64.s`，`sample_avx_amd64.s`和`sample_avx2_amd64.s`，因此对应的三个go文件为：`sample_sse4_amd64.go`，`sample_avx_amd64.go`和`sample_avx2_amd64.go`。
+其中声明的go函数为下面，我们挑其中一个文件说，其他两个类似：
+```go
+package sample
+
+import "unsafe"
+
+// 声明的go汇编函数，不支持go buildin 数据类型，参数个数要与c实现的参数个数相等，最多支持14个。
+//go:noescape
+func _sample_sum_sse4_2(addr unsafe.Pointer, len int64) (x int64)
+
+//go:noescape
+func _sample_max_sse4_2(addr unsafe.Pointer, len int64) (x int64)
+
+//go:noescape
+func _sample_min_sse4_2(addr unsafe.Pointer, len int64) (x int64)
+
+// 因为我们希望输入参数为一个slice，则我们在下面进行3个封装。
+
+func sample_sum_sse4_2(v []int64) int64 {
+    x := (*slice)(unsafe.Pointer(&v))
+    return _sample_sum_sse4_2(x.addr, x.len)
+}
+
+func sample_max_sse4_2(v []int64) int64 {
+    x := (*slice)(unsafe.Pointer(&v))
+    return _sample_max_sse4_2(x.addr, x.len)
+}
+
+func sample_min_sse4_2(v []int64) int64 {
+    x := (*slice)(unsafe.Pointer(&v))
+    return _sample_min_sse4_2(x.addr, x.len)
+}
+```
+
+有了这些函数声明，我们就可以使用`c2goasm`进行转换了：
+```sh
+c2goasm -a -f lib/sample_sse4.s sample_sse4_amd64.s
+c2goasm -a -f lib/sample_avx.s sample_avx_amd64.s
+c2goasm -a -f lib/sample_avx2.s sample_avx2_amd64.s
+```
+然后我们添加一段初始化逻辑，根据CPU支持的指令集来选择使用对应的实现：
+```go
+import (
+	"math"
+	"unsafe"
+
+	"github.com/intel-go/cpuid"
+)
+
+var (
+	// SampleSum returns the sum of the slice of int64.
+	SampleSum func(values []int64) int64
+	// SampleMax returns the maximum value of the slice of int64.
+	SampleMax func(values []int64) int64
+	// SampleMin returns the minimum value of the slice of int64.
+	SampleMin func(values []int64) int64
+)
+
+func init() {
+	switch {
+	case cpuid.EnabledAVX && cpuid.HasExtendedFeature(cpuid.AVX2):
+		SampleSum = sample_sum_avx2
+		SampleMax = sample_max_avx2
+		SampleMin = sample_min_avx2
+	case cpuid.EnabledAVX && cpuid.HasFeature(cpuid.AVX):
+		SampleSum = sample_sum_avx
+		SampleMax = sample_max_avx
+		SampleMin = sample_min_avx
+	case cpuid.HasFeature(cpuid.SSE4_2):
+		SampleSum = sample_sum_sse4_2
+		SampleMax = sample_max_sse4_2
+		SampleMin = sample_min_sse4_2
+  default:
+    // 纯go实现
+		SampleSum = sampleSum
+		SampleMax = sampleMax
+		SampleMin = sampleMin
+	}
+}
+```
+
+此时我们的工作就完成了，我们可以使用`go test`的benchmark来进行比较，看看跟之前的纯go实现，性能提升了多少：
+```
+name         old time/op  new time/op  delta
+SampleSum-4   519ns ± 1%    53ns ± 2%  -89.72%  (p=0.000 n=10+9)
+SampleMax-4   676ns ± 2%   183ns ± 2%  -73.00%  (p=0.000 n=10+10)
+SampleMin-4   627ns ± 1%   180ns ± 1%  -71.27%  (p=0.000 n=10+9)
+```
+
+我们可以看出，sum方法得到10倍的提升，max/min得到了3倍多的提升，可能是因为max/min方法中每次循环中都有一次分支判断的原因，导致其提升效果不如sum方法那么多。
+
+完整的实现在[lrita/c2goasm-example](https://github.com/lrita/c2goasm-example)
+
 ## 参考
 * [A Quick Guide to Go's Assembler](https://golang.org/doc/asm)
 * [解析 Go 中的函数调用](https://juejin.im/post/58f579b58d6d81006491c7c0/)
@@ -736,3 +966,4 @@ func xxx() int {
 * [Golang中的Plan9汇编器](https://github.com/yangyuqian/technical-articles/blob/master/asm/golang-plan9-assembly-cn.md)
 * [GoFunctionsInAssembly](https://github.com/golang/go/files/447163/GoFunctionsInAssembly.pdf)
 * [plan9 assembly 完全解析](https://github.com/cch123/golang-notes/blob/master/assembly.md)
+* [InfluxData is Building a Fast Implementation of Apache Arrow in Go Using c2goasm and SIMD](https://www.influxdata.com/blog/influxdata-apache-arrow-go-implementation/)
