@@ -35,8 +35,12 @@ keywords: system
 销，以及`page cache`的异步写入磁盘等步骤，对于`NVMe`/`FusionIO`/`NVDIMM`这种高速设备来说，`page cache`
 这层是额外的开销），当然DAX也需要硬件自身的支持。
 
+目前已经有了很多关于`DAX`+`NVM`组合的文件系统的研究[^5][^6]，貌似取得不少成功。
+
 # 参考
 [^1]: [NVDIMM and the Linux Kernel](http://www.admin-magazine.com/HPC/Articles/NVDIMM-Persistent-Memory)
 [^2]: [NVDIMM-N Cookbook](/images/posts/memory/Chang-Sainio_NVDIMM_Cookbook.pdf)
 [^3]: [How to emulate Persistent Memory](http://pmem.io/2016/02/22/pm-emulation.html)
 [^4]: [pmemkv](http://pmem.io/2017/02/21/pmemkv-intro.html)
+[^5]: [Efficient Memory Mapped File I/O for In-Memory File Systems](/images/posts/filesystem/hotstorage17-paper-choi.pdf)
+[^6]: [Efficient Memory Mapped File I/O for In-Memory File Systems PPT](/images/posts/filesystem/hotstorage17_slides_choi.pdf)
