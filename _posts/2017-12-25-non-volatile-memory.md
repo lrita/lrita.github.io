@@ -45,3 +45,4 @@ keywords: system
 [^4]: [pmemkv](http://pmem.io/2017/02/21/pmemkv-intro.html)
 [^5]: [Efficient Memory Mapped File I/O for In-Memory File Systems](/images/posts/filesystem/hotstorage17-paper-choi.pdf)
 [^6]: [Efficient Memory Mapped File I/O for In-Memory File Systems PPT](/images/posts/filesystem/hotstorage17_slides_choi.pdf)
+[^7]: [managing persistent memory](/images/posts/filesystem/Managing-Persistent-Memory_0.pdf)
