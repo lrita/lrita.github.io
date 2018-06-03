@@ -34,6 +34,7 @@ keywords: system
 上的数据拷贝到`page cache`中，然后将`page cache`映射到用户的内存空间，中间的所有操作都需要额外的内存开
 销，以及`page cache`的异步写入磁盘等步骤，对于`NVMe`/`FusionIO`/`NVDIMM`这种高速设备来说，`page cache`
 这层是额外的开销），当然DAX也需要硬件自身的支持。
+![dax](/images/posts/filesystem/nvdimm_linux_dax.png)
 
 目前已经有了很多关于`DAX`+`NVM`组合的文件系统的研究[^5][^6]，貌似取得不少成功。
 
