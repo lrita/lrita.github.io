@@ -128,26 +128,7 @@ CPU通过一条通用总线(前端总线，FSB)连接到北桥。北桥主要包
 
 图2.4展示了6晶体管SRAM的一个单元。核心是4个晶体管M<sub>1</sub> - M<sub>4</sub>，它们组成两个交叉耦合的反相器。它们有两个稳定的状态，分别代表0和1。只要保持V<sub>dd</sub>有电，状态就是稳定的。
 
-当访问单元的状态时，需要拉升WL的电平。使得 BL 和 \(\overline{BL}\) 上可以读取状态。如果需要覆盖单元状态，先将 BL 和$$ \overline{BL} $$设置为期望的值，然后升起WL电平。由于外部的驱动强于内部的4个晶体管（M<sub>1</sub> - M<sub>4</sub>），所以旧状态会被覆盖。
-
-\\[\zeta(s) = \sum_{n = 1}^\infty\frac{1}{n^s}\\]
-
-$$
-\begin{align*}
-  & \phi(x,y) = \phi \left(\sum_{i=1}^n x_ie_i, \sum_{j=1}^n y_je_j \right)
-  = \sum_{i=1}^n \sum_{j=1}^n x_i y_j \phi(e_i, e_j) = \\
-  & (x_1, \ldots, x_n) \left( \begin{array}{ccc}
-      \phi(e_1, e_1) & \cdots & \phi(e_1, e_n) \\
-      \vdots & \ddots & \vdots \\
-      \phi(e_n, e_1) & \cdots & \phi(e_n, e_n)
-    \end{array} \right)
-  \left( \begin{array}{c}
-      y_1 \\
-      \vdots \\
-      y_n
-    \end{array} \right)
-\end{align*}
-$$
+当访问单元的状态时，需要拉升WL的电平。使得 BL 和 \( \overline{BL} \) 上可以读取状态。如果需要覆盖单元状态，先将 $${BL}$$ 和$$ \overline{BL} $$设置为期望的值，然后升起WL电平。由于外部的驱动强于内部的4个晶体管（M<sub>1</sub> - M<sub>4</sub>），所以旧状态会被覆盖。
 
 更多详情，可以参考[sramwiki]。为了下文的讨论，需要注意以下问题:
 
