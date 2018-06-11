@@ -65,6 +65,7 @@ vm.oom_dump_tasks = 1
 # 的进程，杀死这样的进程后可以释放大量的内存。
 # 设置为非0时，OOM-KILLER，只会简单地将触发OOM的进程杀死，避免遍历进程列表，减少了决策开销。
 # 通常建议设置为0。
+# 为了避免特殊的进程被OOM-KILLER干掉，可以修改echo -1000 > /proc/$pid/oom_score_adj，禁止OOM-KILLER杀掉该进程
 vm.oom_kill_allocating_task = 0
 ```
 
