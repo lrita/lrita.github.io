@@ -123,4 +123,51 @@ keywords: c++ steemd steem blockchain
 
 # 打包出块
 
+`steemd`使用[`DPOS`](https://steemit.com/dpos/@legendx/dpos)共识机制，简单来说，只有“超级节点”(witness)才有权收集传播中的`transaction`，对其进行打包，变成一个`block`，然后再把这个`block`传播出去。
+
+当本节点为“超级节点”(witness)时，可以启动`witness`插件，在配置`config.ini`的`plugin`项加入`witness`，例如`plugin = witness`，同时配置好文件中的`witness`项和与`witness`项对应的`private-key`。
+
+在`witness`插件启动后，会启动一个定时器，定时触发调度逻辑[`maybe_produce_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/plugins/witness/witness_plugin.cpp#L541-L615)⑮，该函数会执行`witness`的调度逻辑（该处可以开个模块另行讲解），如果不该本节点轮次时，就返回等待下一次调度，如果轮到本节点的轮次，则会调用[`chain::database`](https://github.com/steemit/steem/tree/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain)的[`generate_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L800-L817)⑯，该打包的过程中：
+
+1. 回滚前面传播`transaction`时的**临时**数据变更，因为这些数据可能是[不可靠的](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L843-L854)。因为只有被变成`block`并传播到各个节点上的数据才是大家公认可靠的数据。
+2. 然后将本节点收集到的被广播的`transaction`中包含的`operation`再进行一次校验，该处使用的校验方式是将这些`operation`在本地**应用**一次⑰（逻辑跟④中的那些步骤是一样的，可以看上面的描述），这种校验方式时非常重的一个操作，**应用**完后，还需要再**回滚**一次数据，这样极大的消耗的性能，极大地限制了该系统的TPS。
+3. 将本地收集的`transaction`，放入一个`block`中，然后更新该`block`的元数据，比如序号、前一个`block`的id等等，建立该`block`跟以前`block`的关系。
+4. 对新生成的`block`进行签名。
+5. 调用[`push_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L610-L640)⑱，将新生成的`block`**应用㉒**到本地`database`，这个**应用㉒**操作会涉及到很多逻辑，留在后面再讲。
+6. 调用`p2p`插件的[`broadcast_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/plugins/p2p/p2p_plugin.cpp#L744-L748)⑲方法，将这个签名后的`block`广播出去。
+
 # 块数据的传播
+
+当新生成的`block`被广播出去后，收到该信息的节点会触发其会触发本地节点`graphene::net::node`的回调函数[`node_impl::on_message`]⑪，然后根据消息内`block`的标识，再触发回调函数[`node_impl::process_block_message`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/net/node.cpp#L3602-L3682)，其进行一些简单的处理。然后触发`p2p`插件的[`p2p_plugin_impl::handle_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/plugins/p2p/p2p_plugin.cpp#L172-L239)⑬方法。该方法很简单，直接去调用插件[`chain_plugin`](https://github.com/steemit/steem/tree/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/plugins/chain)中的[`accept_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/plugins/chain/chain_plugin.cpp#L538-L562)方法⑳。在`accept_block`中将这个新`block`放入写入队列中㉑，跟③处是同一个队列。然后该队列的消费者，从队列中取出该`block`数据，然后调用[`push_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L610-L640)将`block`中的数据**应用㉒**到本地`database`，此处与⑱处相同，即块生成的节点，和接收块的节点都运行相同的**应用㉒**逻辑。
+
+根据状态机原理，初始状态的相同的两份数据，经过相同的状态迁移，最终的状态也相同，这样就保证了各个`steemd`节点的数据最终一致性。
+
+# 区块链的生长
+
+在每个`steemd`节点收到新`block`后㉒，会首先判断是否发生了分叉，如果发生了分叉，则进行分叉修复㉓。
+
+## 分叉处理
+`steemd`采用的是长链原则，即发生分叉时，无条件信任长链的数据。如果事先本节点**应用**短链的数据，则会回滚掉短链涉及的全部数据变更，然后再重新**应用**长链上的数据修改。当一条链被`75%`的的“超级节点”(witness)**应用**后，该条链才会变成不可变更的，在此之前本地`steemd`节点上的区块链数据可能会发生多次回滚、变更。至于一条链需要多久才能被`75%`的的“超级节点”(witness)**应用**变得稳定，这个得视各种情况而定，如果“超级节点”(witness)的数量且相互之间延时很低，则发生分叉的概况就低，则达成`75%`共识则更快，如果从中有人破坏，故意分叉或者网络情况差，无意造成分叉，则达成共识更慢。
+
+目前`steemd`能够处理1024个块内的分叉，即假设的分叉时长不长于`1024*3s`(51分钟)。
+
+`steemd`本地采用了`fork_db`来缓存每个收到的`block`，如果新`block`与本地的链的最后一个`block`相连，则直接使本地的链生长，**应用**该`block`中的数据。如果新`block`与本地的链的最后一个`block`不相连，则先将其缓存在`fork_db`中，然后比较哪条链长，如果`fork_db`缓存中的链比本地链长时，则回滚本地链上的`block`，使得`database`恢复到长短2条链共同的分叉点`block`处，然后将长链的后续`block`**应用**到本地`database`。这段逻辑在[`这里`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L669-L727)。
+
+## 生长
+当处理完分叉情况后，则会调用[`apply_block`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L2729-L2798)㉔方法，将`block`中的数据**应用**到本地`database`。
+
+此时先验证该`block`的签名、merkle根等信息。感觉校验的逻辑应该移动到分叉处理之前，这样能极大的减少伪造块带来的分叉，从而避免了被攻击的可能，因为分叉回滚会极大的消耗`database`仅有的处理能力。
+
+当该`block`被校验完成后，依次调用[`apply_transaction`](https://github.com/steemit/steem/blob/807fb40ec137a987dc53cee6d8455c7b6c47aeed/libraries/chain/database.cpp#L3128-L3131)方法，把`block`中的`transaction`**应用**到本地`database`，此处的**应用**逻辑与④处相同，就不再赘述了。
+
+当`block`中的`transaction`**应用**完成后，更新本地节点的全局元数据（当前block号、时间、witness状态等），再然后处理一些收尾工作，比如清理过期的`transaction`、`orders`等，奖励对应`block`的witness（此处与`steemd`的激励机制有关）。
+
+# 总结
+
+至此，就完成了一个用户更新操作的全部流程：从用户的一个变更操作，变成一个`transaction`，再变成一个`block`，最后同步到`database`的变更。
+
+从中可见，区块链并没有什么技术上的创新，使用的都是现成技术方案：
+* 数字签名、hash
+* 批处理，多个`transaction`打包成一个`block`
+* `p2p`网络
+* [`RSM`](https://lrita.github.io/2018/03/27/blockchain-and-rsm/)，从`transaction`的收集、打包、出块，块的传播，链的生长，就是`RSM`的逻辑。
