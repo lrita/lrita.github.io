@@ -451,33 +451,21 @@ T_{miss} = 缓冲未命中所用的周期数 \\
 T_{exe} = 程序的执行时间
 $$
 
-为了让任何判读使用双线程，两个线程之中任一线程的执行时间最多为单线程指令的一半。两者都有一个唯一的变量缓存命中数。 如果我们要解决最小缓存命中率相等的问题需要使我们获得的线程的执行率不少于50%或更多，如图 3.23.
-
-For it to make any sense to use two threads the execution time of each of the two threads must be at most half of that of the single-threaded code. The only variable on either side is the number of cache hits. If we solve the equation for the minimum cache hit rate required to not slow down the thread execution by 50% or more we get the graph in Figure 3.23.
+对于使用两个线程的任何意义来说，两个线程之中任一线程的执行时间最多为单线程指令的一半。两者都有一个唯一的变量缓存命中数。如果我们要解决最小缓存命中率相等的问题，需要使我们获得的线程的执行率不少于50%或更多，如图 3.23.
 
 ![](/images/posts/memory/cpumemory.14.png)
 
 图 3.23: 最小缓存命中率-加速
 
-X轴表示单线程指令的缓存命中率Ghit，Y轴表示多线程指令所需的缓存命中率。这个值永远不能高于单线程命中率，否则，单线程指令也会使用改良的指令。为了使单线程的命中率在低于55%的所有情况下优于使用多线程，cup要或多或少的足够空闲因为缓存丢失会运行另外一个超线程。
-
-The X–axis represents the cache hit rate Ghit of the single-thread code. The Y–axis shows the required cache hit rate for the multi-threaded code. This value can never be higher than the single-threaded hit rate since, otherwise, the single-threaded code would use that improved code, too. For single-threaded hit rates below 55% the program can in all cases benefit from using threads. The CPU is more or less idle enough due to cache misses to enable running a second hyper-thread.
+X轴表示单线程指令的缓存命中率$$G_{hit}$$，Y轴表示多线程指令所需的缓存命中率。这个值永远不能高于单线程命中率，否则，单线程指令也会使用改良的指令。为了使单线程的命中率在低于55%的所有情况下优于使用多线程，cpu要或多或少的足够空闲(延迟)，因为缓存丢失会运行另外一个超线程。
 
 绿色区域是我们的目标。如果线程的速度没有慢过50%，而每个线程的工作量只有原来的一半，那么它们合起来的耗时应该会少于单线程的耗时。对我们用的示例系统来说(使用超线程的P4机器)，如果单线程代码的命中率为60%，那么多线程代码至少要达到10%才能获得收益。这个要求一般来说还是可以做到的。但是，如果单线程代码的命中率达到了95%，那么多线程代码要做到80%才行。这就很难了。而且，这里还涉及到超线程，在两个超线程的情况下，每个超线程只能分到一半的有效缓存。因为所有超线程是使用同一个缓存来装载数据的，如果两个超线程的工作集没有重叠，那么原始的95%也会被打对折——47%，远低于80%。
 
-The green area is the target. If the slowdown for the thread is less than 50% and the workload of each thread is halved the combined runtime might be less than the single-thread runtime. For the modeled system here (numbers for a P4 with hyper-threads were used) a program with a hit rate of 60% for the single-threaded code requires a hit rate of at least 10% for the dual-threaded program. That is usually doable. But if the single-threaded code has a hit rate of 95% then the multi-threaded code needs a hit rate of at least 80%. That is harder. Especially, and this is the problem with hyper-threads, because now the effective cache size (L1d here, in practice also L2 and so on) available to each hyper-thread is cut in half. Both hyper-threads use the same cache to load their data. If the working set of the two threads is non-overlapping the original 95% hit rate could also be cut in half and is therefore much lower than the required 80%.
-
-因此，超线程只在某些情况下才比较有用。单线程代码的缓存命中率必须低到一定程度，从而使缓存容量变小时新的命中率仍能满足要求。只有在这种情况下，超线程才是有意义的。在实践中，采用超线程能否获得更快的结果，取决于处理器能否有效地将每个进程的等待时间与其它进程的执行时间重叠在一起。并行化也需要一定的开销，需要加到总的运行时间里，这个开销往往是不能忽略的。
+因此，超线程只在某些情况下才比较有用：单线程代码的缓存命中率必须低到一定程度，从而使缓存容量变小时新的命中率仍能满足要求。只有在这种情况下，超线程才是有意义的。在实践中，采用超线程能否获得更快的结果，取决于处理器能否有效地将每个进程的等待时间与其它进程的执行时间重叠在一起。并行化也需要一定的开销，需要加到总的运行时间里，这个开销往往是不能忽略的。
 
 在6.3.4节中，我们会介绍一种技术，它将多个线程通过公用缓存紧密地耦合起来。这种技术适用于许多场合，前提是程序员们乐意花费时间和精力扩展自己的代码。
 
-Hyper-Threads are therefore only useful in a limited range of situations. The cache hit rate of the single-threaded code must be low enough that given the equations above and reduced cache size the new hit rate still meets the goal. Then and only then can it make any sense at all to use hyper-threads. Whether the result is faster in practice depends on whether the processor is sufficiently able to overlap the wait times in one thread with execution times in the other threads. The overhead of parallelizing the code must be added to the new total runtime and this additional cost often cannot be neglected.
-
-In Section 6.3.4 we will see a technique where threads collaborate closely and the tight coupling through the common cache is actually an advantage. This technique can be applicable to many situations if only the programmers are willing to put in the time and energy to extend their code.
-
-如果两个超线程执行完全不同的代码(两个线程就像被当成两个处理器，分别执行不同进程)，那么缓存容量就真的会降为一半，导致缓冲未命中率大为攀升，这一点应该是很清楚的。这样的调度机制是很有问题的，除非你的缓存足够大。所以，除非程序的工作集设计得比较合理，能够确实从超线程获益，否则还是建议在BIOS中把超线程功能关掉。{我们可能会因为另一个原因 开启 超线程，那就是调试，因为SMT在查找并行代码的问题方面真的非常好用。}
-
-What should be clear is that if the two hyper-threads execute completely different code (i.e., the two threads are treated like separate processors by the OS to execute separate processes) the cache size is indeed cut in half which means a significant increase in cache misses. Such OS scheduling practices are questionable unless the caches are sufficiently large. Unless the workload for the machine consists of processes which, through their design, can indeed benefit from hyper-threads it might be best to turn off hyper-threads in the computer's BIOS. {Another reason to keep hyper-threads enabled is debugging. SMT is astonishingly good at finding some sets of problems in parallel code.}
+应该明确一点，如果两个超线程执行完全不同的代码(两个线程就像被当成两个处理器，分别执行不同进程)，那么缓存容量就真的会降为一半，导致缓冲未命中率大为攀升。这样的调度机制是很有问题的，除非你的缓存足够大。所以，除非程序的工作集设计得比较合理，能够确实从超线程获益，否则还是建议在BIOS中把超线程功能关掉。{我们可能会因为另一个原因开启超线程，那就是调试，因为SMT在查找并行代码的问题方面真的非常好用。}
 
 ## 3.3.5 其它细节
 
