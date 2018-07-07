@@ -383,7 +383,7 @@ RFO消息在两种情况下是必需的:
 
 对同步来说，有限的带宽严重地制约着并发度。程序需要更加谨慎的设计，将不同处理器访问同一块内存的机会降到最低。以下的测试展示了这一点，还展示了与多线程代码相关的其它效果。
 
-# 多线程测量
+### 多线程测量
 
 为了帮助大家理解问题的严重性，我们来看一些曲线图，主角也是前文的那个程序。只不过这一次，我们运行多个线程，并测量这些线程中最快那个的运行时间。也就是说，等它们全部运行完是需要更长时间的。我们用的机器有4个处理器，而测试是做多跑4个线程。所有处理器共享同一条通往内存控制器的总线，另外，通往内存模块的总线也只有一条。
 
@@ -471,43 +471,23 @@ X轴表示单线程指令的缓存命中率$$G_{hit}$$，Y轴表示多线程指�
 
 我们已经介绍了地址的组成，即标签、集合索引和偏移三个部分。那么，实际会用到什么样的地址呢？目前，处理器一般都向进程提供虚拟地址空间，意味着我们有两种不同的地址: 虚拟地址和物理地址。
 
-虚拟地址有个问题——并不唯一。随着时间的变化，虚拟地址可以变化，指向不同的物理地址。同一个地址在不同的进程里也可以表示不同的物理地址。那么，是不是用物理地址会比较好呢？
-
-So far we talked about the address as consisting of three parts, tag, set index, and cache line offset. But what address is actually used? All relevant processors today provide virtual address spaces to processes, which means that there are two different kinds of addresses: virtual and physical.
-
-The problem with virtual addresses is that they are not unique. A virtual address can, over time, refer to different physical memory addresses. The same address in different process also likely refers to different physical addresses. So it is always better to use the physical memory address, right?
+虚拟地址有个问题：并不唯一。随着时间的变化，虚拟地址可以变化，指向不同的物理地址。同一个地址在不同的进程里也可以表示不同的物理地址。那么，是不是用物理地址会比较好呢？
 
 问题是，处理器指令用的虚拟地址，而且需要在内存管理单元(MMU)的协助下将它们翻译成物理地址。这并不是一个很小的操作。在执行指令的管线(pipeline)中，物理地址只能在很后面的阶段才能得到。这意味着，缓存逻辑需要在很短的时间里判断地址是否已被缓存过。而如果可以使用虚拟地址，缓存查找操作就可以更早地发生，一旦命中，就可以马上使用内存的内容。结果就是，使用虚拟内存后，可以让管线把更多内存访问的开销隐藏起来。
 
-The problem here is that instructions use virtual addresses and these have to be translated with the help of the Memory Management Unit (MMU) into physical addresses. This is a non-trivial operation. In the pipeline to execute an instruction the physical address might only be available at a later stage. This means that the cache logic has to be very quick in determining whether the memory location is cached. If virtual addresses could be used the cache lookup can happen much earlier in the pipeline and in case of a cache hit the memory content can be made available. The result is that more of the memory access costs could be hidden by the pipeline.
+处理器的设计人员们现在使用虚拟地址来标记第一级缓存。这些缓存很小，很容易被清空。在进程页表树发生变更的情况下，至少是需要清空部分缓存的。如果处理器拥有指定变更地址范围的指令，那么可以避免缓存的完全刷新。由于一级缓存`L1i`及`L1d`的时延都很小(~3周期)，基本上必须使用虚拟地址。
 
-处理器的设计人员们现在使用虚拟地址来标记第一级缓存。这些缓存很小，很容易被清空。在进程页表树发生变更的情况下，至少是需要清空部分缓存的。如果处理器拥有指定变更地址范围的指令，那么可以避免缓存的完全刷新。由于一级缓存L1i及L1d的时延都很小(~3周期)，基本上必须使用虚拟地址。
+对于更大的缓存，包括`L2`和`L3`等，则需要以物理地址作为标签。因为这些缓存的时延比较大，虚拟到物理地址的映射可以在允许的时间里完成，而且由于主存时延的存在，重新填充这些缓存会消耗比较长的时间，刷新的代价比较昂贵。
 
-对于更大的缓存，包括L2和L3等，则需要以物理地址作为标签。因为这些缓存的时延比较大，虚拟到物理地址的映射可以在允许的时间里完成，而且由于主存时延的存在，重新填充这些缓存会消耗比较长的时间，刷新的代价比较昂贵。
-
-Processor designers are currently using virtual address tagging for the first level caches. These caches are rather small and can be cleared without too much pain. At least partial clearing the cache is necessary if the page table tree of a process changes. It might be possible to avoid a complete flush if the processor has an instruction which specifies the virtual address range which has changed. Given the low latency of L1i and L1d caches (~3 cycles) using virtual addresses is almost mandatory.
-
-For larger caches including L2, L3, ... caches physical address tagging is needed. These caches have a higher latency and the virtual→physical address translation can finish in time. Because these caches are larger (i.e., a lot of information is lost when they are flushed) and refilling them takes a long time due to the main memory access latency, flushing them often would be costly.
-
-一般来说，我们并不需要了解这些缓存处理地址的细节。我们不能更改它们，而那些可能影响性能的因素，要么是应该避免的，要么是有很高代价的。填满缓存是不好的行为，缓存线都落入同一个集合，也会让缓存早早地出问题。对于后一个问题，可以通过缓存虚拟地址来避免，但作为一个用户级程序，是不可能避免缓存物理地址的。我们唯一可以做的，是尽最大努力不要在同一个进程里用多个虚拟地址映射同一个物理地址。
-
-It should, in general, not be necessary to know about the details of the address handling in those caches. They cannot be changed and all the factors which would influence the performance are normally something which should be avoided or is associated with high cost. Overflowing the cache capacity is bad and all caches run into problems early if the majority of the used cache lines fall into the same set. The latter can be avoided with virtually addressed caches but is impossible for user-level processes to avoid for caches addressed using physical addresses. The only detail one might want to keep in mind is to not map the same physical memory location to two or more virtual addresses in the same process, if at all possible.
+一般来说，我们并不需要了解这些缓存处理地址的细节。我们不能更改它们，而且那些可能影响性能的因素，要么是应该避免的，要么是有很高代价的。填满缓存是不好的行为，cache line都落入同一个集合，也会让缓存早早地出问题。对于后一个问题，可以通过缓存虚拟地址来避免，但作为一个用户级程序，是不可能避免缓存物理地址的。我们唯一可以做的，是尽最大努力不要在同一个进程里用多个虚拟地址映射同一个物理地址。
 
 另一个细节对程序员们来说比较乏味，那就是缓存的替换策略。大多数缓存会优先逐出最近最少使用(Least Recently Used,LRU)的元素。这往往是一个效果比较好的策略。在关联性很大的情况下(随着以后核心数的增加，关联性势必会变得越来越大)，维护LRU列表变得越来越昂贵，于是我们开始看到其它的一些策略。
 
 在缓存的替换策略方面，程序员可以做的事情不多。如果缓存使用物理地址作为标签，我们是无法找出虚拟地址与缓存集之间关联的。有可能会出现这样的情形: 所有逻辑页中的缓存线都映射到同一个缓存集，而其它大部分缓存却空闲着。即使有这种情况，也只能依靠OS进行合理安排，避免频繁出现。
 
-Another detail of the caches which is rather uninteresting to programmers is the cache replacement strategy. Most caches evict the Least Recently Used (LRU) element first. This is always a good default strategy. With larger associativity (and associativity might indeed grow further in the coming years due to the addition of more cores) maintaining the LRU list becomes more and more expensive and we might see different strategies adopted.
-
-As for the cache replacement there is not much a programmer can do. If the cache is using physical address tags there is no way to find out how the virtual addresses correlate with the cache sets. It might be that cache lines in all logical pages are mapped to the same cache sets, leaving much of the cache unused. If anything, it is the job of the OS to arrange that this does not happen too often.
-
 虚拟化的出现使得这一切变得更加复杂。现在不仅操作系统可以控制物理内存的分配。虚拟机监视器（VMM，也称为 hypervisor）也负责分配内存。
 
 对程序员来说，最好 a) 完全使用逻辑内存页面 b) 在有意义的情况下，使用尽可能大的页面大小来分散物理地址。更大的页面大小也有其他好处，不过这是另一个话题（见第4节）。
-
-With the advent of virtualization things get even more complicated. Now not even the OS has control over the assignment of physical memory. The Virtual Machine Monitor (VMM, aka hypervisor) is responsible for the physical memory assignment.
-
-The best a programmer can do is to a) use logical memory pages completely and b) use page sizes as large as meaningful to diversify the physical addresses as much as possible. Larger page sizes have other benefits, too, but this is another topic (see Section 4).
 
 # 3.4 指令缓存
 
