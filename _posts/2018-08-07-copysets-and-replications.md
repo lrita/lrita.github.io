@@ -24,7 +24,7 @@ keywords: distributed-programming
 
 故，论文中提出了4个核心变量：
 
-* $$S$$
+* $$S$$ 
 * $$R$$ 副本数
 * $$N$$ 集群实例数
 * $$P$$ 副本排列组合次数
