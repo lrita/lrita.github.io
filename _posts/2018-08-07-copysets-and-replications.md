@@ -68,7 +68,9 @@ keywords: distributed-programming
 我们可以看出，节点5的$$S$$只有3，我们可以重新再分配一次，或者直接接受这个结果，因为虽则集群节点数的增大，找到最优解的难度会很高。
 
 论文中使用`copyset`算法后与之前的对比：
+
 ![](/images/posts/distribution/copysets-2.png)
 
+# 参考
 [^1]: [Copysets：Reducing the Frequency of Data Loss in Cloud Storage](/images/posts/distribution/Copysets-Reducing-the-Frequency-of-Data-Loss-in-Cloud-Storage.pdf)
 [^2]: [Copysets and Chainsets：A Better Way to Replicate](http://hackingdistributed.com/2014/02/14/chainsets/)
