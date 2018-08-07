@@ -70,5 +70,5 @@ keywords: distributed-programming
 论文中使用`copyset`算法后与之前的对比：
 ![](/images/posts/distribution/copysets-2.png)
 
-* [^1]: [Copysets: Reducing the Frequency of Data Loss in Cloud Storage](/images/posts/distribution/Copysets-Reducing-the-Frequency-of-Data-Loss-in-Cloud-Storage.pdf)
-* [^2]: [Copysets and Chainsets: A Better Way to Replicate](http://hackingdistributed.com/2014/02/14/chainsets/)
+[^1]: [Copysets: Reducing the Frequency of Data Loss in Cloud Storage](/images/posts/distribution/Copysets-Reducing-the-Frequency-of-Data-Loss-in-Cloud-Storage.pdf)
+[^2]: [Copysets and Chainsets: A Better Way to Replicate](http://hackingdistributed.com/2014/02/14/chainsets/)
