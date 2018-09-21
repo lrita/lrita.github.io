@@ -2,5 +2,5 @@
   url: https://blog.cloudflare.com
 - name: facebook技术博客
   url: https://code.fb.com
-- name: uber技术博客(将分布式的内容比较多)
+- name: uber技术博客(讲分布式的内容比较多)
   url: https://eng.uber.com
