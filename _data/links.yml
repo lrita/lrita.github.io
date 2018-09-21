@@ -1,2 +1,6 @@
-- name: 码志
-  url: http://mazhuang.org
+- name: cloudflare技术博客(主要讲网络、性能分析等)
+  url: https://blog.cloudflare.com
+- name: facebook技术博客
+  url: https://code.fb.com
+- name: uber技术博客(将分布式的内容比较多)
+  url: https://eng.uber.com
