@@ -1,10 +1,22 @@
-- name: cloudflare技术博客(主要讲网络、性能分析等)
+- name: Cloudflare 技术博客(主要讲网络、性能分析等)
   url: https://blog.cloudflare.com
-- name: facebook技术博客
+- name: Facebook 技术博客
   url: https://code.fb.com
-- name: uber技术博客(讲分布式的内容比较多)
+- name: Uber 技术博客(讲分布式的内容比较多)
   url: https://eng.uber.com
-- name: 淘宝褚霸(数据库、内核的内容比较多，内容基本不更新了)
+- name: 阿里中间件团队博客
+  url: http://jm.taobao.org
+- name: 数据库内核月报
+  url: http://mysql.taobao.org/monthly/
+- name: KernelMaker (RocksDB/Pika)
+  url: http://kernelmaker.github.io
+- name: BRAVE NEW GEEK (消息队列)
+  url: https://bravenewgeek.com
+- name: Tonybai (golang)
+  url: https://tonybai.com
+- name: 风云 (主要讲游戏，偶尔讲优化)
+  url: https://blog.codingnow.com
+- name: 淘宝褚霸 (数据库、内核的内容比较多，内容基本不更新了)
   url: http://blog.yufeng.info
-- name: 陈硕(C++，已经停更了)
+- name: 陈硕 (C++，已经停更了)
   url: https://blog.csdn.net/solstice
