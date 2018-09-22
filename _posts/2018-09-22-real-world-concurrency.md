@@ -1,6 +1,6 @@
 ---
 layout: post
-title: [转]并发编程的15条建议(译)
+title: 【转】并发编程的15条建议(译)
 categories: [program]
 description: program
 keywords: program
