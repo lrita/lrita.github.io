@@ -8,7 +8,7 @@ keywords: program
 
 本文转自[并发编程的15条建议(译)](https://www.cnblogs.com/Solstice/archive/2010/09/29/realworld_concurency.html)。
 
-内核专家 Bryan Cantrill 和 Jeff Bonwick 在 2008 年 9 月的《ACM Queue》上发表了[《Real-world Concurrency》](images/posts/com/Real-world-Concurrency.pdf) 一文，提出了 15 条并发编程的建议，这里简单摘录如下。
+内核专家 Bryan Cantrill 和 Jeff Bonwick 在 2008 年 9 月的《ACM Queue》上发表了[《Real-world Concurrency》](/images/posts/com/Real-world-Concurrency.pdf) 一文，提出了 15 条并发编程的建议，这里简单摘录如下。
 
 **1. Know your cold paths from your hot paths.弄清楚代码里的热门执行路径和冷门执行路径。**
 
