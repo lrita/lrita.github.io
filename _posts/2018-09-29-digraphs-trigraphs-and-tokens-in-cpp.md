@@ -11,7 +11,7 @@ keywords: c++
 // 以下代码的输出是什么？
 #include<iostream>
 
-int main(){
+int main() {
   int x=0; //What is wrong here??/
   x=1;
   std::cout<<x;
@@ -49,8 +49,8 @@ _注意_: **编译器对`三字符组`的处理是在解析注释、宏的步骤
 // 以下代码的输出是什么？
 #include<iostream>
 
-int main(){
-  int x=0; //What is wrong here\   <- ??/被解释为\，使得自动折行
+int main() {
+  int x=0; //What is wrong here\   <- "??/"被解释为"\"，使得自动折行 \
   x=1;                             <- 此行其实是被注释掉的
   std::cout<<x;
 }
