@@ -50,15 +50,18 @@ C++编译器将文件代码源文件解析后，将代码分解为`identifier`[^
 **其主要规则是，如果目标是一个`qualified identifier(限定标识符)`，进行`Qualified name lookup`[^3]，否则进行`Unqualified name lookup`[^4]，对于函数还可能进行`Argument-dependent lookup`[^5]**
 
 ## Qualified name lookup
-当遇到未知的`qualified identifier(限定标识符)`时，会去其对应的限定符区域内进行查找，比如命名空间、类空间、枚举空间等。
+> 当遇到未知的`qualified identifier(限定标识符)`时，会去其对应的限定符区域内进行查找，比如命名空间、类空间、枚举空间等。
+
 ```c++
   std::cout << 1; // 解析"cout"时，去命名空间std中进行查找
   struct A {
-    typedef int type；
+    typedef int type;
   };
   A::type a;      // 解析"type"时，去A类空间中查找
 ```
+
 > 如果`::`左侧没有限定符，则去全局命名空间进行查找，这样就避免了被本地声明遮盖的情况：
+
 ```c++
 #include <iostream>
 int main() {
@@ -97,8 +100,8 @@ struct C {
 X C::arr[number], brr[number];    // 错误: "X"经过`unqualified name`解析为`::X`与`C::arr`对应的`C::X`不同。
 C::X C::arr[number], brr[number]; // OK: `C::arr`的长度为50，`brr`的长度为100
                                   // `C::arr[number]`中的`number`受同一个声明中的"qualified name"`C::arr`
-                                     的影响，回去类空间`C`中查找，得到`C::number`，也就是50。而`brr[number]`
-                                     与`C::arr[number]`不是同一个声明，则不受这种影响，得到`::number`，也就是100
+                                  // 的影响，回去类空间`C`中查找，得到`C::number`，也就是50。而`brr[number]`
+                                  // 与`C::arr[number]`不是同一个声明，则不受这种影响，得到`::number`，也就是// 100
 ```
 
 > 当`::`右侧是`~`加一个`name`时（其实就是析构函数或伪析构函数），则解析这个`name`时，使用`::`左侧的域
@@ -117,9 +120,8 @@ int main() {
 
 > 当`::`左侧为枚举类时，则`::`右侧的`name`必须属于这个枚举类，否则为`ill-formed`
 
-> `qualified name lookup`还可以被用来调用被隐藏的方法，这种调用方式不会调用虚函数。
+> `qualified name lookup`还可以被用来调用被隐藏的方法，这种调用方式不会调用虚函数：
 
-举例：
 ```c++
 struct B { virtual void foo(); };
 struct D : B { void foo() override; };
