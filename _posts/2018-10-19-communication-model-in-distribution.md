@@ -41,7 +41,7 @@ keywords: distributed system
 * 每个机器上的时钟我们可以认为是基本同步的，比如我们可以使用[`NTP`](https://zh.wikipedia.org/zh-hans/網路時間協定)来同步机器时间，而且多数机器上有独立的[时钟芯片](https://zh.wikipedia.org/wiki/實時時鐘)，我们也可以粗略认为各个机器上时间流逝的速度是相同的。但是严格要求时序的系统除外。
 
 # 结论
-在`FLP 不可能性`[^2]中已经明确给我们指明了分布式系统中的矛盾点，我们需要结合`部分同步网络模型`与`异步网络模型`的约束条件变化，以及我们的业务需求，去做出具体的取舍。比如在[分布式编程中的故障探测](https://lrita.github.io/2017/10/30/failure-detect-in-distributed-programming/)就给出了`故障探测`需要做出的取舍。
+在`FLP 不可能性`中已经明确给我们指明了分布式系统中的矛盾点，我们需要结合`部分同步网络模型`与`异步网络模型`的约束条件变化，以及我们的业务需求，去做出具体的取舍。比如在[分布式编程中的故障探测](https://lrita.github.io/2017/10/30/failure-detect-in-distributed-programming/)就给出了`故障探测`需要做出的取舍。
 
 # 参考
 
