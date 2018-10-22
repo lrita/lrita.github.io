@@ -32,4 +32,4 @@ keywords: distributed system
 在一般的分布式系统中，我们不太需要关注`拜占庭问题`，应该重点关注`performance failures`、`omission failures`、`crash failures`、`fail-stop failures`，因为他们更容易出现，也更容易影响我们的系统。
 
 # 参考
-* [FAILURE MODES IN DISTRIBUTED SYSTEMS](http://alvaro-videla.com/2013/12/failure-modes-in-distributed-systems.html)
+[^1]: [FAILURE MODES IN DISTRIBUTED SYSTEMS](http://alvaro-videla.com/2013/12/failure-modes-in-distributed-systems.html)
