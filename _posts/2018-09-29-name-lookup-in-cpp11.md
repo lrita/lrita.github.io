@@ -478,8 +478,85 @@ struct X {
 
 如果通常的未限定（unqualified）名字查找所产生的候选集包括下述情形，则不会启动依赖于实参的名字查找：
 * 类成员声明（此种情形仅指普通的类成员函数，不指类成员运算符函数）
+```c++
+#include <iostream>
+namespace xx {
+struct XA {};
+void foo(XA &a) { std::cout << "xx::foo" << std::endl; }
+};
+
+namespace yy {
+void test() {
+  xx::XA xa;
+  foo(xa);  // 在这里，可以通过ADL来找到xx::foo
+}
+struct YA {
+  int foo;
+  static void test() {
+    xx::XA xa;
+    foo(xa); // 在这里，由于通过unqualified name lookup找到了
+             // 成员变量int foo，所以不会进行ADL，因此会出错
+  }
+};
+}
+```
 * 块作用域内的函数的声明，不含(using-declaration)
+```c++
+#include <iostream>
+
+namespace xx {
+struct XA {};
+void foo(XA &a) { std::cout << "xx::foo" << std::endl; }
+};
+
+namespace zz {
+void foo(int a) { std::cout << "zz::foo" << std::endl; }
+}
+
+namespace yy {
+void foo(int a); // ①
+void test0() {
+  xx::XA xa;
+  foo(xa); // 此处正常进行ADL，不受到外部声明①的影响
+}
+void test1() {
+  using zz::foo;  // ②
+  xx::XA xa;
+  foo(xa);        // 此处正常进行ADL，不受声明②的影响
+}
+void test2() {
+  void foo(int);  // ③
+  xx::XA xa;
+  foo(xa);        // 此处由于该代码块中有不含using的声明，则不会进行ADL，所以会报错
+}
+}
+```
 * 任何不是函数或者函数模板的声明（例如函数对象或者另一个变量其名字与被查询的函数名字冲突）
+```c++
+#include <iostream>
+
+namespace xx {
+struct XA {};
+void foo(XA &a) { std::cout << "xx::foo" << std::endl; }
+};
+
+namespace zz {
+int foo;
+}
+
+namespace yy {
+void foo(int a);
+void test0() {
+  xx::XA xa;
+  foo(xa);
+}
+void test1() {
+  using zz::foo; // 由于该处声明，引入的是一个变量，则①处不会进行ADL，报错
+  xx::XA xa;
+  foo(xa);       // ①
+}
+}
+```
 
 **函数调用表达式**的每个实参的**类型**用于**确定**命名空间与类的相关集合（associated set of namespaces and classes）并用于函数名字查找（这句话的意思简而言之就是**ADL查找的集合范围如何确定**）：
 > 1. 基本类型（fundamental type）实参的命名空间与类的相关集合为空。
@@ -637,6 +714,63 @@ template<class T> class B {
 template<class T> struct X : B<T> {
    A a; // 对 A 的查找找到了 ::A (double)，而不是 B<T>::A
 };
+```
+```c++
+#include <iostream>
+void g(double) { std::cout << "g(double)\n"; }
+
+template<class T>
+struct S {
+    void f() const {
+        g(1); // "g" 是非依赖名，现在绑定，即使后面遇到更
+              // 合适的void g(int)，也不可见
+    }
+};
+
+void g(int) { std::cout << "g(int)\n"; }
+
+int main()
+{
+    g(1); // 调用 g(int)
+
+    S<int> s;
+    s.f(); // 调用 g(double)
+}
+```
+```c++
+// an external libary
+namespace E {
+  template<typename T>
+  void writeObject(const T& t) {
+    std::cout << "Value = " << t << '\n';
+  }
+}
+
+// 翻译单元 1 ：
+// 程序员 1 希望允许 E::writeObject 与 vector<int> 一同使用
+namespace P1 {
+  std::ostream& operator<<(std::ostream& os, const std::vector<int>& v) {
+      for(int n: v) os << n << ' '; return os;
+  }
+  void doSomething() {
+    std::vector<int> v;
+    E::writeObject(v); // 错误：找不到 P1::operator<<
+                       // 因为P1::operator<<的定义出现在模板E::writeObject定义之后
+  }
+}
+
+// 翻译单元 2 ：
+namespace P1 {
+  // 若 C 是定义于 P1 命名空间的类
+  std::ostream& operator<<(std::ostream& os, const std::vector<C>& v) {
+      for(C n: v) os << n; return os;
+  }
+  void doSomething() {
+    std::vector<C> v;
+    E::writeObject(v); // OK ：实例化 writeObject(std::vector<P1::C>)
+                       //     通过 ADL 找到 P1::operator<<
+  }
+}
 ```
 
 # 参考
