@@ -477,7 +477,7 @@ struct X {
 依赖于实参的名字查找是C++程序设计语言中的名字查找机制之一。英文为“argument-dependent lookup”，因此缩写为ADL。ADL依据函数调用中的实参的数据类型查找未限定（unqualified）的函数名（或者函数模板名）。这也被称作“克尼格查找”（Koenig lookup），虽然安德鲁·克尼格并不是它的发明者。[^8]
 
 如果通常的未限定（unqualified）名字查找所产生的候选集包括下述情形，则不会启动依赖于实参的名字查找：
-> * 类成员声明（此种情形仅指普通的类成员函数，不指类成员运算符函数）
+> 1.类成员声明（此种情形仅指普通的类成员函数，不指类成员运算符函数）
 
 ```c++
 #include <iostream>
@@ -502,7 +502,7 @@ struct YA {
 }
 ```
 
-> * 块作用域内的函数的声明，不含(using-declaration)
+> 2.块作用域内的函数的声明，不含(using-declaration)
 
 ```c++
 #include <iostream>
@@ -535,7 +535,7 @@ void test2() {
 }
 ```
 
-> * 任何不是函数或者函数模板的声明（例如函数对象或者另一个变量其名字与被查询的函数名字冲突）
+> 3.任何不是函数或者函数模板的声明（例如函数对象或者另一个变量其名字与被查询的函数名字冲突）
 
 ```c++
 #include <iostream>
@@ -559,6 +559,24 @@ void test1() {
   using zz::foo; // 由于该处声明，引入的是一个变量，则①处不会进行ADL，报错
   xx::XA xa;
   foo(xa);       // ①
+}
+}
+```
+
+> 4.当调用的函数被括号包围时
+
+```c++
+#include <iostream>
+namespace xx {
+struct XA {};
+void foo(XA &a) { std::cout << "xx::foo" << std::endl; }
+};
+namespace yy {
+void test0() {
+  xx::XA xa;
+  foo(xa);   // OK，此处进行ADL
+  (foo)(xa); // ERROR，由于foo被括号包围，故不进行ADL，这条规则在文档中没有提及，
+             // 不知道应该被归属于哪一条，所以单独拿出来。
 }
 }
 ```
