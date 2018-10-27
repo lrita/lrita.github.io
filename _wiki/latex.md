@@ -1,6 +1,6 @@
 ---
 layout: wiki
-title: LaTex
+title: LaTeX
 categories: LaTeX
 description:
 keywords: LaTeX
