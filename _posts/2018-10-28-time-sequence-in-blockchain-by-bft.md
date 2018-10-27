@@ -1,9 +1,9 @@
 ---
 layout: post
 title: 使用PBFT和Vector Clock解决区块链时序问题
-categories: [datastructure]
-description: datastructure
-keywords: datastructure
+categories: [blockchain]
+description: blockchain
+keywords: blockchain
 ---
 
 # 背景
