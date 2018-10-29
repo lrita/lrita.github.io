@@ -31,6 +31,10 @@ keywords: distributed system
 * 各个机器上的时钟没有可参考性，因为**3**每个机器不能自发保持时间的一致性，并且因为**1**、**2**，机器时间也无法同步时钟在一个有界的误差之内。所以依赖超时机制的算法并不可用。
 * 因为**1**、**2**，当一个请求在本地时钟上超时后，我们无法判断这个请求是否是因为对端异常造成的。这是一个经典的`两军问题`[^3]场景，故，我们无法对其他实例进行故障探测。
 
+从定义中**3**，我们引出两个概念，但是这两个概念原本是集成电路[^4] [^5]中的概念，但是我们在分布式系统中重新扩展一下：
+* `clock drift(时钟漂移)`：相关节点上的时钟以不同的速率运行。在$$P_1$$节点上经过$$\Delta T_1$$的同时，$$P_2$$节点经过了$$\Delta T_2$$，但是$$\Delta T_1 \neq \Delta T_2$$。
+* `clock skew(时钟偏移)`：相关节点都引用了同一个时间源（比如通过NTP服务），但是由于这个时间源将授时信号同步不同节点时的耗时不同（比如网络传输耗时），造成同一时刻不同节点间产生了时间差。这是一个比`clock drift(时钟漂移)`更加严格的要求，因为如果一个系统内部的$$T_{Skew}$$存在上界$$T_{ShewMax}$$，那一定能通过不断的校时、保持时钟同步，使得$$T_{Drift}$$保持在$$T_{ShewMax}$$以内。
+
 `异步网络模型`是一个最理想的"最差"网络模型，但是其复杂度又远超我们实际情形。
 
 # 部分同步网络模型
@@ -48,3 +52,5 @@ keywords: distributed system
 [^1]: [WHAT_WE_TALK_ABOUT_WHEN_WE_TALK_ABOUT_DISTRIBUTED_SYSTEMS](http://alvaro-videla.com/2015/12/learning-about-distributed-systems.html)
 [^2]: [FLP_不可能性](/images/posts/distribution/impossibility-of-distributed-consensus-with-one-faulty-process.pdf)
 [^3]: [两军问题](https://baike.baidu.com/item/两军问题/20124353)
+[^4]: [Clock drift](https://en.wikipedia.org/wiki/Clock_drift)
+[^5]: [Clock skew](https://en.wikipedia.org/wiki/Clock_skew)
