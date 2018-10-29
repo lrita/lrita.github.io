@@ -582,17 +582,18 @@ void test0() {
 ```
 
 **函数调用表达式**的每个实参的**类型**用于**确定**命名空间与类的相关集合（associated set of namespaces and classes）并用于函数名字查找（这句话的意思简而言之就是**ADL查找的集合范围如何确定**）：
-> 1. 基本类型（fundamental type）实参的命名空间与类的相关集合为空。
+> 1.基本类型（fundamental type）实参的命名空间与类的相关集合为空。
 
 ```
 如果参数的命名空间为空，将其添加到查找集合内，但是查找时，会直接跳过空集。
 ```
 
-> 2. 类类型（class type，指struct, class, union类型）, 相关集合包括
+> 2.类类型（class type，指struct，class，union类型），相关集合包括
 >    1. 类类型自身；
 >    2. 该类型的所有的直接或间接基类；
 >    3. 如果类类型 T 是另一个类 G 的成员（嵌套类型），则那个包含了类类型 T 的类 G；
 >    4. 该类类型的所有相关类的最内层外围命名空间。
+
 ```c++
 #include <iostream>
 namespace ADL {
@@ -618,7 +619,7 @@ int main() {
 }
 ```
 
-> 3. 如果实参是[类模板](https://zh.cppreference.com/w/cpp/language/class_template)特化后得到的类型，在上述规则外，还检验下列规则，并添加其关联类与命名空间到集合：
+> 3.如果实参是[类模板](https://zh.cppreference.com/w/cpp/language/class_template)特化后得到的类型，在上述规则外，还检验下列规则，并添加其关联类与命名空间到集合：
 >     1. 类型模板形参（type template parameter）所对应的模板实参的类型，不包括非类型的模板形参、模板模板形参；
 >     2. 模板模板实参（template template argument）所在的命名空间；
 >     3. 模板模板实参所在的类（如果这个类包含了这个成员模板）。
@@ -626,9 +627,33 @@ int main() {
 ```c++
 ```
 
-> 4. 对于枚举类型的实参，添加枚举定义于其中的命名空间到集合。如果枚举类型是类成员，则添加该类到集合。
+> 4. 对于枚举类型的实参，添加枚举类型所在的命名空间到集合。如果枚举类型是一个类的成员类型，则添加该类到集合。
 
-```
+```c++
+#include <iostream>
+
+namespace xx {
+enum XType {
+  XTypeA,
+  XTypeB,
+  XTypeC,
+};
+
+void foo(XType x) { std::cout << "foo 4" << std::endl; }
+
+struct A {
+  enum AType {
+    ATypeA,
+    ATypeB,
+  };
+  friend void foo1(AType x) { std::cout << "foo 41" << std::endl; }
+};
+}
+
+namespace yy {
+void test0() { foo(xx::XTypeA); }         // ADL
+void test1() { foo1(xx::A::ATypeA); }     // ADL
+}
 ```
 
 > 5. 如果实参是类型 T 的指针或者是类型 T 的数组的指针，则检验类型 T 并添加其类与命名空间的关联集到集合。
