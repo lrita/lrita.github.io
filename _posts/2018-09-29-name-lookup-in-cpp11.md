@@ -782,21 +782,99 @@ void test0() {
 
 > 6.如果实参是函数类型，那么检验函数参数类型与函数返回值类型，并添加其类与命名空间的关联集到集合。
 
+```c++
+#include <iostream>
+namespace xx {
+struct A {};
+void func1(A& a) {}
+A func2() { return {}; }
+void lookup1(void (*f)(A&)) { std::cout << "xx:lookup1" << std::endl; }
+void lookup2(A (*f)()) { std::cout << "xx:lookup2" << std::endl; }
+}
+
+namespace yy {
+void test0() {
+  lookup1(xx::func1);  // ok
+  lookup2(xx::func2);  // ok
+}
+}
 ```
-```
+
 > 7.如果实参是类 X 的成员函数 F 的指针类型参数，那么该成员函数的形参类型、该成员函数返回值的类型、该成员函数所属类 X 的相关集合都被加入到关联集到集合。
 
+```c++
+#include <iostream>
+
+namespace x {
+struct B;
+}
+namespace xx {
+struct A {
+  x::B* f() { return nullptr; }
+  void ff(x::B&) {}
+};
+}
+namespace x {
+struct B {
+  friend void lookup1(B* (xx::A::*f)()) {
+    std::cout << "xx::lookup1" << std::endl;
+  }
+};
+template <typename T>
+void lookup2(T t) {
+  std::cout << "xx::lookup2" << std::endl;
+}
+}
+
+namespace yy {
+void test0() {
+  lookup1(&xx::A::f);  // ok
+  lookup1(nullptr);    // failed，因为这条规则标明的是实参，此处实参是nullptr，则不会查找到对应的lookup1
+  lookup2(&xx::A::ff); // ok
+}
+}
 ```
-```
+
 > 8.如果实参是类 X 的数据成员 T 的指针类型参数，那么该成员类型、该数据成员所属类 X 的相关集合都被加入到关联集到集合。
 
+```c++
+#include <iostream>
+namespace xx {
+struct A {
+  int num = 0;
+};
+void lookup1(int A::*) { std::cout << "x::lookup1" << std::endl; }
+}
+
+namespace yy {
+void test0() { lookup1(&xx::A::num); } // ok
+}
+
+int main() { yy::test0(); }
 ```
-```
+
 > 9.若参数是[重载函数集的取址表达式](https://zh.cppreference.com/w/cpp/language/overloaded_address)（或对函数模板）的名称，则检验重载集中的每个元素，并添加其类与命名空间的关联集到集合。
 >     1. 另外，若重载集为模板 id （带模板实参的模板名），则检验其所有类型模板实参与模板模板实参（但不含非类型模板实参），并添加其类与命名空间的关联集到集合。
 
+```c++
+#include <iostream>
+
+namespace xx {
+struct A {
+  int num = 0;
+};
+void lookup1(void (*)()) { std::cout << "x::lookup1" << std::endl; }
+}
+
+namespace yy {
+void f(){};                   // ①
+void f(xx::A*){};             // ②
+void test0() { lookup1(&f); } // ok，由于重载f②的存在，namespace xx也被加入到ADL的集合中
+}
+
+int main() { yy::test0(); }
 ```
-```
+
 > 10.如果相关集合中的任何命名空间是[内联命名空间](https://zh.cppreference.com/w/cpp/language/namespace)（inline namespace）, 则添加其外围命名空间到关联集合。
 
 ```c++
@@ -836,10 +914,32 @@ int main() {
 }
 ```
 
-> 12.在确定命名空间与类的关联集后，为了进一步的 ADL 处理，忽略此集中所有于类中找到的声明，除了命名空间作用域的友元函数及函数模板，陈述于后述点2。以下列特殊规则，合并普通[无限定查找](https://zh.cppreference.com/w/cpp/language/lookup)找到的声明集合，与在 ADL 所生成关联集的所有元素中找到的声明集合:
+> 12.在确定命名空间与类的关联集后，为了进一步的 ADL 处理，**忽略**此集中所有于类中找到的**声明**，除了命名空间作用域的友元函数及函数模板，陈述于后述点2。以下列特殊规则，合并普通[无限定查找](https://zh.cppreference.com/w/cpp/language/lookup)找到的声明集合，与在 ADL 所生成关联集的所有元素中找到的声明集合:
 >     1. 忽略关联命名空间中的 [using 指令](https://zh.cppreference.com/w/cpp/language/namespace#using_.E6.8C.87.E4.BB.A4)
 >     2. 声明于关联类中的命名空间作用域友元函数（及函数模板）通过 ADL 可见，即使它们通过普通查找不可见。
 >     3. 忽略函数与函数模板外的所有名称（与变量不冲突）
+
+```c++
+#include <iostream>
+namespace xx {
+struct A;
+}
+namespace x {
+void f(xx::A *) { std::cout << "x::f" << std::endl; }
+}
+namespace xx {
+using namespace x; // ①
+struct A {};
+}
+namespace yy {
+void test0() {
+  xx::A *a;
+  f(a);    // not ok, ADL时忽略①处using指令
+}
+}
+
+int main() { yy::test0(); }
+```
 
 ## 模板的lookup
 
