@@ -717,7 +717,7 @@ int main() {
 ```
 
 > 3.如果实参是[类模板](https://zh.cppreference.com/w/cpp/language/class_template)特化后得到的类型，在上述规则外，还检验下列规则，并添加其关联类与命名空间到集合：
->     1. 类型模板形参（type template parameter）所对应的模板实参的类型，不包括非类型的模板形参、模板模板形参；
+>     1. 类型模板形参（type template parameter）所对应的**模板实参**的类型，不包括非类型的模板形参、模板模板形参；
 >     2. 模板模板实参（template template argument）所在的命名空间；
 >     3. 模板模板实参所在的类（如果这个类包含了这个成员模板）。
 
@@ -940,6 +940,8 @@ void test0() {
 
 int main() { yy::test0(); }
 ```
+
+> 通过 ADL 查找到的`name`会和前面`unqualified name`普通查找到的合并到一起进行选择，如果存在歧义，会报错。
 
 ## 模板的lookup
 
