@@ -6,6 +6,8 @@ description: go golang race detector
 keywords: go golang race detector
 ---
 
+{% for i in (1..60) %}
 <section data-markdown>
-![](/images/posts/go/racedetector/looking-inside-a-race-detector-1-638.jpg)
+![](/images/posts/go/racedetector/looking-inside-a-race-detector-{{ i }}-638.jpg)
 </section>
+{% endfor %}
