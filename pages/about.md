@@ -3,7 +3,7 @@ layout: page
 title: About
 description: 一个码农
 keywords: lrita, Neal
-comments: true
+comments: false
 menu: 关于
 permalink: /about/
 ---

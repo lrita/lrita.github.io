@@ -79,6 +79,9 @@ collections:
 
 repository: lrita/lrita.github.io
 
+webrick:
+  headers:
+    Access-Control-Allow-Origin: "*"
 # ---------------- #
 #      Comments    #
 # ---------------- #
