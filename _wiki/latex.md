@@ -12,8 +12,11 @@ MacOS上写文章、画图经常需要用到公式、制图等，很少有一种
 
 `LaTeXiT`可以很方便的将公式导出成图片，然后粘贴到`OmniGraffle`中。
 
+[`mathpix`](https://mathpix.com)是一个截图小工具，它可以像QQ截图一样截取屏幕中的图片，识别公式，并且给出其`LaTeXiT`表达式。
+
 
 ## link
 * [LaTeX入门](https://bbs.pku.edu.cn/attach/e7/f2/e7f2bb698b9c3672/tex_intro_talk.pdf) 主要讲如何绘图、文章布局，很少将公式语法
 * [从零开始 LaTeX 快速入门](http://liuchengxu.org/blog-cn/posts/quick-latex/)
 * [一份其实很短的 LaTeX 入门文档](https://liam.page/2014/09/08/latex-introduction/)
+* [mathpix离线安装包](/images/posts/tools/SnippingTool-v1.3.1.54.dmg)
