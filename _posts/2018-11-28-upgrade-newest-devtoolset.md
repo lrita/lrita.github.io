@@ -22,7 +22,7 @@ keywords: linux, tool, devtoolset
 
 比如linux kernel 4.16对应的systemtap的源码版本要求systemtap-3.3以上。在`devtoolset-7`的安装包中[devtoolset-7-systemtap-3.1-4s.el7](https://cbs.centos.org/koji/buildinfo?buildID=22765)对应的源码版本只有systemtap-3.1。所以只能寻求更高版本的支持。因此在该网站上找到了[devtoolset-8-systemtap-3.3-1.el6](https://cbs.centos.org/koji/buildinfo?buildID=23609)。但是`devtoolset-8`还没有正式发行，无法从yum上进行安装。其具体的安装方法是：
 
-* 到[`sclo7-devtoolset-8-rh-candidate`](https://cbs.centos.org/repos/sclo7-devtoolset-8-rh-candidate/x86_64/os/Packages/)现在全部RPM包(这里偷懒下载全部包，这样就不用处理他们之间复杂的相互依赖关系)
+* 到[`sclo7-devtoolset-8-rh-candidate`](https://cbs.centos.org/repos/sclo7-devtoolset-8-rh-candidate/x86_64/os/Packages/)下载全部RPM包(这里偷懒下载全部包，这样就不用处理他们之间复杂的依赖关系)
 * 下载完成后，在RPM包的目录中执行`yum install *.rpm`，安装全部
 * 然后执行`scl enable devtoolset-8 bash`切换环境。
 
