@@ -27,7 +27,7 @@
        <meta name="apple-mobile-web-app-status-bar-style" content="black">
     {% endif %}
     <link rel="canonical" href="{{ page.url | prepend: site.url }}">
-    <link rel="alternate" type="application/atom+xml" title="{{ site.title }}" href="{{ site.subscribe_rss }}">
+    <link rel="alternate" type="application/atom+xml" title="{{ site.title }}" href="{{ site.url }}{{ site.subscribe_rss }}">
     <link rel="shortcut icon" href="{{ site.url }}/favicon.ico">
     {% if page.title %}
     <meta property="og:title" content="{{ page.title }}">
@@ -69,16 +69,7 @@
     <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/latest.js?config=TeX-MML-AM_CHTML"></script>
     <script src="{{ site.url }}/assets/vendor/jquery/dist/jquery.min.js"></script>
     <script src="{{ site.url }}/assets/js/jquery-ui.js"></script>
-    <script type="text/javascript">
-    function toggleMenu() {
-        var nav = document.getElementsByClassName("site-header-nav")[0];
-        if (nav.style.display == "inline-flex") {
-          nav.style.display = "none";
-        } else {
-          nav.style.display = "inline-flex";
-        }
-    }
-    </script>
+    <script src="{{ site.url }}/assets/js/main.js"></script>
 </head>
 <body class="{{ page.class }}" data-mz="{{ page.class }}">
     <header class="site-header">

@@ -698,3 +698,26 @@
 pre {
     border: 1px solid #ccc;
 }
+
+.tools-wrapper {
+  position: fixed;
+  right: 1em;
+  bottom: 3.4375em;
+  z-index: 9;
+  width: 2.5em;
+}
+
+.tools-wrapper a {
+  color: #999;
+  text-align: center;
+  margin-bottom: -1px;
+  background: rgba(255, 255, 255, 32);
+}
+
+.tools-wrapper span.octicon {
+  font-size: 1.5em;
+}
+
+.tools-wrapper .gotop {
+  display: none;
+}
