@@ -39,7 +39,7 @@ go ABI的机制才能进行golang汇编编程。
 
 #### 寄存器
 
-go 汇编中有4个核心的伪寄存器，这4个集群器是编译器用来维护上下文、特殊标识等作用的：
+go 汇编中有4个核心的伪寄存器，这4个寄存器是编译器用来维护上下文、特殊标识等作用的：
 * FP(Frame pointer): arguments and locals
 * PC(Program counter): jumps and branches
 * SB(Static base pointer): global symbols
@@ -62,7 +62,7 @@ go 汇编中有4个核心的伪寄存器，这4个集群器是编译器用来维
 `fast_udiv_tab`。
 
 ###### FB
-`FP`伪集群器用来标识函数参数、返回值。其通过`symbol+offset(FP)`的方式进行使用。例如`arg0+0(FP)`表示第函数第一个参数其实的位置（amd64平台），`arg1+8(FP)`表示函数参数偏移8byte的另一个参数。`arg0`/`arg1`用于助记，但是必须存在，否则
+`FP`伪寄存器用来标识函数参数、返回值。其通过`symbol+offset(FP)`的方式进行使用。例如`arg0+0(FP)`表示第函数第一个参数其实的位置（amd64平台），`arg1+8(FP)`表示函数参数偏移8byte的另一个参数。`arg0`/`arg1`用于助记，但是必须存在，否则
 无法通过编译。至于这两个参数是输入参数还是返回值，得对应其函数声明的函数个数、位置才能知道。
 如果操作命令是`MOVQ arg+8(FP), AX`的话，`MOVQ`表示对8byte长的内存进行移动，其实位置是函数参数偏移8byte
 的位置，目的是寄存器`AX`，因此此命令为将一个参数赋值给寄存器`AX`，参数长度是8byte，可能是一个uint64，`FP`
