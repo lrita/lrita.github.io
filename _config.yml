@@ -35,6 +35,10 @@ navs:
     label: 分类
 
   -
+    href: /archives/
+    label: 归档
+
+  -
     href: /wiki/
     label: 维基
 
@@ -91,7 +95,7 @@ comments_provider: gitalk
 # !!!Important!!! Please modify infos below to yours
 # https://disqus.com
 disqus:
-    username: 
+    username:
 # https://imsun.net/posts/gitment-introduction/
 gitment:
     owner: tupian
