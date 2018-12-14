@@ -36,6 +36,8 @@ _编：`lease`还是非常容易理解的一个概念，但是为了不全知识
 # 实践
 在[Fault-tolerant and decentralized lease coordination for distributed systems](/images/posts/distribution/flease-fault-tolerant-and-decentralized-lease-coordination-for-distributed-systems.pdf)讲解了一种基于PAXSO算法的，`时钟漂移`有上界的`部分同步网络`的`lease(租约)`算法。
 
+在[分布式原理介绍](https://lrita.github.io/2017/12/18/distribution-system-principle/)中的`2.3`章节对`lease`机制也有很不错的讲解。
+
 # 参考
 [^1]: [分布式系统中的故障模型](https://lrita.github.io/2018/10/20/failure-model-in-distribution/)
 [^2]: [分布式系统中的通讯模型](https://lrita.github.io/2018/10/19/communication-model-in-distribution/)
