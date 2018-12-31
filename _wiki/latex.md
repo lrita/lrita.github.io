@@ -12,7 +12,13 @@ MacOS上写文章、画图经常需要用到公式、制图等，很少有一种
 
 `LaTeXiT`可以很方便的将公式导出成图片，然后粘贴到`OmniGraffle`中。
 
-[`mathpix`](https://mathpix.com)是一个截图小工具，它可以像QQ截图一样截取屏幕中的图片，识别公式，并且给出其`LaTeXiT`表达式。
+[`mathpix`](https://mathpix.com)是一个截图小工具，它可以像QQ截图一样截取屏幕中的图片，识别公式，并且给出其`LaTeXiT`表达式。其功能在云端实现，需要翻墙对应的API: `api.mathpix.com`
+
+# 模板
+* [中国科学院大学学位论文 LaTeX 模板](https://github.com/mohuangrui/ucasthesis)
+* [清华大学学位论文LaTeX模板](https://github.com/xueruini/thuthesis)
+* [国家自然基金 LaTeX 模板](https://github.com/YimianDai/iNSFC)
+* [LaTeX模板集](https://github.com/dustinvtran/latex-templates)
 
 
 ## link
