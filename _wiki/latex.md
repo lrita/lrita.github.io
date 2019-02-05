@@ -26,3 +26,5 @@ MacOS上写文章、画图经常需要用到公式、制图等，很少有一种
 * [从零开始 LaTeX 快速入门](http://liuchengxu.org/blog-cn/posts/quick-latex/)
 * [一份其实很短的 LaTeX 入门文档](https://liam.page/2014/09/08/latex-introduction/)
 * [mathpix离线安装包](/images/posts/tools/SnippingTool-v1.3.1.54.dmg)
+* [LaTeX开源小屋](http://www.latexstudio.net)
+* [latex入门-简版](/images/wiki/latex入门-简版-刘海洋.pdf)
