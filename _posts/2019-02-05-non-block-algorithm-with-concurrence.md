@@ -122,7 +122,7 @@ public void funcLockFree() {
 
 ![](/images/posts/datastructure/concurrent-algorithm-table.png)
 
-在上图中，X轴的维度是`progress`，`progress`从左向右逐步降低；而Y轴方向的维度是`是否依赖系统对线程的调度`，上侧不依赖系统调度，下侧依赖系统调度。
+在上图中，Y轴的维度是`progress`，上侧的算法比下侧的具有更高的`progress`。而X轴方向的维度则不是唯一的，首先偏左的垂直线将X轴分为2部分，其分割的依据是`是否依赖系统对线程的调度`，左侧不依赖系统调度，而右侧依赖系统调度；偏右的垂直分割线的依据是`是否阻塞`，线左侧是非阻塞，线右侧是阻塞的（这里不太同意这种归类，我认为`starvation-free`只是一种依赖调度属性，与是否阻塞不是一个维度）。
 
 # 参考
 [^1]: [Disadvantages of locks](https://en.wikipedia.org/wiki/Lock_(computer_science)#Disadvantages)
