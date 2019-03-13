@@ -6,6 +6,9 @@ description: linux page fault page-fault
 keywords: linux page fault page-fault
 ---
 
+# 前言
+此部分内容需要对linux的虚拟内存和物理内存有所了解，可以先阅读[《Linux物理内存描述》](/images/posts/memory/Linux_Physical_Memory_Description.pdf)、[《Linux物理内存页面分配》](/images/posts/memory/Linux_Physical_Memory_Page_Allocation.pdf)、[《Linux内存地址映射》](/images/posts/memory/Linux_Memory_Address_Mapping.pdf)、[《Linux 内核在 x86_64 CPU 中地址映射》](/images/posts/memory/Linux_x64_Memory_Address_Mapping.pdf)和[《Linux Virtual Memory》](/images/posts/memory/VM.pdf)。
+
 # 缺页异常
 
 > Linux的内存管理采用分页管理，使用多级页表，动态地址转换机构与主存、辅存共同实现虚拟内存。即使每个进程有相同的逻辑地址空间，通过分页机制，相应的物理地址也是不同的，因此他们在物理上不会彼此重叠。
