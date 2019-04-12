@@ -103,6 +103,25 @@ go 汇编中有4个核心的伪寄存器，这4个寄存器是编译器用来维
 * `FP`和Go的官方源代码里的`framepointer`不是一回事，源代码里的`framepointer`指的是caller BP寄存器的值，
 在这里和caller的伪`SP`是值是相等的。
 
+_注_: 如何理解伪寄存器`FP`和`SP`呢？其实伪寄存器`FP`和`SP`相当于plan9伪汇编中的一个助记符，他们是根据当前函数栈空间计算出来的一个相对于物理寄存器`SP`的一个偏移量坐标。当在一个函数中，如果用户手动修改了物理寄存器`SP`的偏移，则伪寄存器`FP`和`SP`也随之发生对应的偏移。例如
+
+```asm
+// func checking()(before uintptr, after uintptr)
+TEXT ·checking(SB),$4112-16
+        LEAQ x-0(SP), DI         //
+        MOVQ DI, before+0(FP)    // 将原伪寄存器SP偏移量存入返回值before
+
+        MOVQ    SP, BP           // 存储物理SP偏移量到BP寄存器
+        ADDQ    $4096, SP        // 将物理SP偏移增加4K
+
+        LEAQ x-0(SP), SI
+        MOVQ    BP, SP           // 恢复物理SP，因为修改物理SP后，伪寄存器FP/SP随之改变，
+                                 // 为了正确访问FP，先恢复物理SP
+        MOVQ SI, cpu+8(FP)       // 将偏移后的伪寄存器SP偏移量存入返回值after
+        RET
+                                 // 从输出的after-before来看，正好相差4K
+```
+
 ###### 通用寄存器
 在plan9汇编里还可以直接使用的amd64的通用寄存器，应用代码层面会用到的通用寄存器主要是:
 `rax, rbx, rcx, rdx, rdi, rsi, r8~r15`这14个寄存器，虽然`rbp`和`rsp`也可以用，不过`bp`和`sp`会被用来管
