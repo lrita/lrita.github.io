@@ -259,6 +259,47 @@ MOVQ (vdsoVersionKey_version+vdsoVersionKey_verHash)(DX) AX
 
 我们可以通过命令`go tool compile -S -asmhdr dump.h *.go`来导出相关文件编译过程中会生成的宏定义。
 
+#### 地址运算
+字段部分引用自[《plan9-assembly-完全解析》](https://github.com/cch123/golang-notes/blob/master/assembly.md#plan9-assembly-完全解析)：
+
+> 地址运算也是用 lea 指令，英文原意为`Load Effective Address`，amd64 平台地址都是`8`个字节，所以直接就用`LEAQ`就好:
+```
+LEAQ (BX)(AX*8), CX
+// 上面代码中的 8 代表 scale
+// scale 只能是 0、2、4、8
+// 如果写成其它值:
+// LEAQ (BX)(AX*3), CX
+// ./a.s:6: bad scale: 3
+// 整个表达式含义是 CX = BX + (AX * 8)
+// 如果要表示3倍的乘法可以表示为：
+LEAQ (AX)(AX*2), CX // => CX = AX + (AX * 2) = AX * 3
+
+// 用 LEAQ 的话，即使是两个寄存器值直接相加，也必须提供 scale
+// 下面这样是不行的
+// LEAQ (BX)(AX), CX
+// asm: asmidx: bad address 0/2064/2067
+// 正确的写法是
+LEAQ (BX)(AX*1), CX
+
+
+// 在寄存器运算的基础上，可以加上额外的 offset
+LEAQ 16(BX)(AX*1), CX
+// 整个表达式含义是 CX = 16 + BX + (AX * 8)
+
+// 三个寄存器做运算，还是别想了
+// LEAQ DX(BX)(AX*8), CX
+// ./a.s:13: expected end of operand, found (
+```
+
+其余`MOVQ`等表达式的区别是，在寄存器加偏移的情况下`MOVQ`会对地址进行解引用：
+```
+MOVQ (AX), BX   // => BX = *AX 将AX指向的内存区域8byte赋值给BX
+MOVQ 16(AX), BX // => BX = *(AX + 16)
+
+
+MOVQ AX, BX     // => BX = AX 将AX中存储的内容赋值给BX，注意区别
+```
+
 ### buildin类型
 在golang汇编中，没有`struct/slice/string/map/chan/interface{}`等类型，有的只是寄存器、内存。因此我们需要了解这些
 类型对象在汇编中是如何表达的。
