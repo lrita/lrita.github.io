@@ -262,8 +262,9 @@ MOVQ (vdsoVersionKey_version+vdsoVersionKey_verHash)(DX) AX
 #### 地址运算
 字段部分引用自[《plan9-assembly-完全解析》](https://github.com/cch123/golang-notes/blob/master/assembly.md#plan9-assembly-完全解析)：
 
-> 地址运算也是用 lea 指令，英文原意为`Load Effective Address`，amd64 平台地址都是`8`个字节，所以直接就用`LEAQ`就好:
-```
+> 地址运算也是用 lea 指令，英文原意为`Load Effective Address`，amd64 平台地址都是`8`个字节，所以直接就用`LEAQ`就好：
+
+```asm
 LEAQ (BX)(AX*8), CX
 // 上面代码中的 8 代表 scale
 // scale 只能是 0、2、4、8
@@ -271,7 +272,7 @@ LEAQ (BX)(AX*8), CX
 // LEAQ (BX)(AX*3), CX
 // ./a.s:6: bad scale: 3
 // 整个表达式含义是 CX = BX + (AX * 8)
-// 如果要表示3倍的乘法可以表示为：
+// 如果要表示3倍的乘法可以表示为:
 LEAQ (AX)(AX*2), CX // => CX = AX + (AX * 2) = AX * 3
 
 // 用 LEAQ 的话，即使是两个寄存器值直接相加，也必须提供 scale
