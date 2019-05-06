@@ -1053,6 +1053,12 @@ SampleMin-4   627ns ± 1%   180ns ± 1%  -71.27%  (p=0.000 n=10+9)
 
 完整的实现在[lrita/c2goasm-example](https://github.com/lrita/c2goasm-example)
 
+### RDTSC精确计时
+
+在x86架构的CPU上，每个CPU上有一个单调递增的时间戳寄存器，可以帮助我们精确计算每一段逻辑的精确耗时，其调用代价和计时精度远远优于`time.Now()`，在`runtime`中有着广泛应用，可以参考`runtime·cputicks`的实现。在但是对于指令比较复杂的函数逻辑并不适用于此方法，因为该寄存器时与CPU核心绑定，每个CPU核心上的寄存器可能并不一致，如果被测量的函数比较长，在运行过程中很可能发生CPU核心/线程的调度，使该函数在执行的过程中被调度到不同的CPU核心上，这样测量前后取到的时间戳不是来自于同一个寄存器，从而造成比较大的误差。
+
+还要注意的是`RDTSC`并不与其他指令串行，为了保证计时的准确性，[需要在调用`RDTSC`前增加对应的内存屏障，保证其准确性](https://www.felixcloutier.com/x86/rdtsc)。
+
 ## 参考
 * [A Quick Guide to Go's Assembler](https://golang.org/doc/asm)
 * [解析 Go 中的函数调用](https://juejin.im/post/58f579b58d6d81006491c7c0/)
@@ -1061,3 +1067,4 @@ SampleMin-4   627ns ± 1%   180ns ± 1%  -71.27%  (p=0.000 n=10+9)
 * [GoFunctionsInAssembly](https://github.com/golang/go/files/447163/GoFunctionsInAssembly.pdf)
 * [plan9 assembly 完全解析](https://github.com/cch123/golang-notes/blob/master/assembly.md)
 * [InfluxData is Building a Fast Implementation of Apache Arrow in Go Using c2goasm and SIMD](https://www.influxdata.com/blog/influxdata-apache-arrow-go-implementation/)
+* [RDTSC指令](https://www.felixcloutier.com/x86/rdtsc)
