@@ -70,6 +70,38 @@
     <script src="{{ site.url }}/assets/vendor/jquery/dist/jquery.min.js"></script>
     <script src="{{ site.url }}/assets/js/jquery-ui.js"></script>
     <script src="{{ site.url }}/assets/js/main.js"></script>
+
+    {% if page.mermaid %}
+    <script type="text/javascript" src="{{ site.url }}/assets/vendor/mermaid.js/7.1.0/mermaid.min.js"></script>
+    <script>
+      var config = {
+        startOnLoad:true,
+        {% if page.mermaid_stype %}
+        theme: page.mermaid_stype,
+        {% endif %}
+        flowchart:{ useMaxWidth:false, htmlLabels:true}
+      };
+      mermaid.initialize(config);
+      $(function() {
+        var elements = document.getElementsByClassName("language-mermaid");
+        for (var i = elements.length; i--;) {
+          element = elements[i];
+          var graphDefinition = element.innerText;
+          if (graphDefinition) {
+            var svg = mermaid.render('ha_mermaid_' + i, graphDefinition, function(svg){});
+            if (svg) {
+              var svgElement = document.createElement('div');
+              preNode = element.parentNode;
+              svgElement.innerHTML = svg;
+              svgElement.setAttribute('class', 'mermaid');
+              svgElement.setAttribute('data-processed', 'true');
+              preNode.parentNode.replaceChild(svgElement, preNode);
+            }
+          }
+        }
+      });
+    </script>
+    {% endif %}
 </head>
 <body class="{{ page.class }}" data-mz="{{ page.class }}">
     <header class="site-header">
