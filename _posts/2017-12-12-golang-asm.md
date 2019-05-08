@@ -496,9 +496,7 @@ func zzz(a, b, c int) [3]int
 * `JMP` 含义为跳转，直接跳转时，与函数栈空间相关的几个寄存器`SP`/`FP`不会发生变化，可以理解为被调用函数
 复用调用者的栈空间，此时，参数传递采用寄存器传递，调用者和被调用者协商好使用那些寄存传递参数，调用者将
 参数写入这些寄存器，然后跳转到被调用者，被调用者从相关寄存器读出参数。具体实践可以参考[1](https://github.com/golang/go/blob/d1be0fd910758852584ab53d2c92c4caac3f5b7e/src/runtime/asm_amd64.s#L1516-L1522)。
-* `CALL` 通过`CALL`命令来调用其他函数时，栈空间会发生响应的变化，传递参数时，我们需要输入参数、返回值按
-之前将的栈布局安排在调用者的栈顶(低地址段)，然后再调用`CALL`命令来调用其函数，调用`CALL`命令后，`SP`寄存
-器会下移一个`WORD`(x86\_64上是8byte)，然后进入新函数的栈空间运行。
+* `CALL` 通过`CALL`命令来调用其他函数时，栈空间会发生响应的变化(寄存器`SP`/`FP`随之发生变化)，传递参数时，我们需要输入参数、返回值按之前将的栈布局安排在调用者的栈顶(低地址段)，然后再调用`CALL`命令来调用其函数，调用`CALL`命令后，`SP`寄存器会下移一个`WORD`(x86\_64上是8byte)，然后进入新函数的栈空间运行。下图中`return addr(函数返回地址)`不需要用户手动维护，`CALL`指令会自动维护。
 
 下面演示一个`CALL`方法调用的例子：
 ```go
@@ -603,7 +601,7 @@ func main() {
        |                         |------------------|
        |                         |                  |
        |                         |   callee arg0    |
-       |                         ----------------------------------------------+   FP(virtual register)
+       |      SP(Real Register)  ----------------------------------------------+   FP(virtual register)
        |                         |                  |                          |
        |                         |   return addr    |  parent return address   |
        +---------------------->  +------------------+---------------------------    <-------------------------------+
@@ -767,6 +765,222 @@ PASS
 ok      go/asm    13.005s
 ```
 
+#### 回调函数/闭包
+```go
+var num int
+func call(fn func(), n int) {
+	fn()
+	num += n
+}
+
+func basecall() {
+	call(func() {
+		num += 5
+	}, 1)
+}
+```
+
+如上面所示，当函数(`call`)参数中包含回调函数(`fn`)时，回调函数的指针通过一种简介方式传入，之所以采用这种设计也是为了照顾闭包调用的实现。接下来简单介绍一下这种传参。当一个函数的参数为一个函数时，其调用者与被调用者之间的关系如下图所示：
+
+```
+                                       caller
+                                 +------------------+
+                                 |                  |
+       +---------------------->  --------------------
+       |                         |                  |
+       |                         | caller parent BP |
+       |           BP(pseudo SP) --------------------
+       |                         |                  |
+       |                         |   Local Var0     |
+       |                         --------------------
+       |                         |                  |
+       |                         |   .......        |
+       |                         --------------------
+ caller stack frame              |                  |
+       |                         |   Local VarN     |      ┼────────────┼
+       |                         |------------------|      │    ....    │  如果是闭包时，可
+       |                         |                  |      ┼────────────┼  以扩展该区域存储
+       |                         |   callee arg1(n) |      │    ....    │  闭包中的变量。
+       |                         |------------------|      ┼────────────┼
+       |                         |                  | ---->│ fn pointer │  间接临时区域
+       |                         |   callee arg0    |      ┼────────────┼
+       |      SP(Real Register)  ----------------------------------------------+   FP(virtual register)
+       |                         |                  |                          |
+       |                         |   return addr    |  parent return address   |
+       +---------------------->  +------------------+---------------------------    <-------------------------------+
+                                                    |  caller BP               |                                    |
+                                                    |  (caller frame pointer)  |                                    |
+                                     BP(pseudo SP)  ----------------------------                                    |
+                                                    |                          |                                    |
+                                                    |     Local Var0           |                                    |
+                                                    ----------------------------                                    |
+                                                    |                          |
+                                                    |     Local Var1           |
+                                                    ----------------------------                            callee stack frame
+                                                    |                          |
+                                                    |       .....              |
+                                                    ----------------------------                                    |
+                                                    |                          |                                    |
+                                                    |     Local VarN           |                                    |
+                                  SP(Real Register) ----------------------------                                    |
+                                                    |                          |                                    |
+                                                    |                          |                                    |
+                                                    +--------------------------+    <-------------------------------+
+
+                                                              callee
+```
+
+在golang的ABI中，关于回调函数、闭包的上下文由调用者(`caller-basecall`)来维护，被调用者(`callee-call`)直接按照规定的格式来使用即可。
+
+1. 调用者需要申请一段临时内存区域来存储函数(`func() { num+=5 }`)的指针，当传递参数是闭包时，该临时内存区域开可以进行扩充，用于存储闭包中捕获的变量，通常编译器将该内存区域定义成型为`struct { F uintptr; a *int }`的结构。该临时内存区域可以分配在栈上，也可以分配在堆上，还可以分配在寄存器上。到底分配在哪里，需要编译器根据逃逸分析的结果来决定；
+2. 将临时内存区域的地址存储于对应被调用函数入参的对应位置上；其他参数按照上面的常规方法放置；
+3. 使用`CALL`执行调用被调用函数(`callee-call`)；
+4. 在被调用函数(`callee-call`)中从对应参数位置中取出临时内存区域的指针存储于指定寄存器`DX`(仅针对amd64平台)
+5. 然后从`DX`指向的临时内存区域的首部取出函数(`func() { num+=5 }`)指针，存储于`AX`(此处寄存器可以任意指定)
+6. 然后在执行`CALL AX`指令来调用传入的回调函数。
+7. 当回调函数是闭包时，需要使用捕获的变量时，直接通过集群器`DX`加对应偏移量来获取。
+
+下面结合几个例子来理解：
+
+**例一**
+
+```go
+func callback() {
+	println("xxx")
+}
+
+func call(fn func()) {
+	fn()
+}
+
+func call1() {
+	call(callback)
+}
+
+func call0()
+```
+
+其中`call0`函数可以用汇编实现为：
+```asm
+TEXT ·call0(SB), $16-0           # 分配栈空间16字节，8字节为call函数的入参，8字节为间接传参的'临时内存区域'
+	LEAQ	·callback(SB), AX    # 取·callback函数地址存储于'临时内存区域'
+	MOVQ	AX, fn-8(SP)         #
+	LEAQ	fn-8(SP), AX         # 取'临时内存区域'地址存储于call入参位置
+	MOVQ	AX, fn-16(SP)        #
+	CALL	·call(SB)            # 调用call函数
+	RET
+```
+
+**注意**：如果我们使用`go tool compile -l -N -S`来获取`call1`的实现，可以的得到：
+
+```asm
+TEXT    "".call1(SB), ABIInternal, $16-0
+    MOVQ    (TLS), CX
+    CMPQ    SP, 16(CX)
+    JLS     55
+    SUBQ    $16, SP
+    MOVQ    BP, 8(SP)
+    LEAQ    8(SP), BP
+    FUNCDATA        $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+    FUNCDATA        $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+    FUNCDATA        $3, gclocals·9fb7f0986f647f17cb53dda1484e0f7a(SB)
+    PCDATA  $2, $1
+    PCDATA  $0, $0                 # 以上是函数编译器生成的栈管理，不用理会
+    LEAQ    "".callback·f(SB), AX  # 这部分，貌似没有分配'临时内存区域'进行中转，
+    PCDATA  $2, $0                 # 而是直接将函数地址赋值给call的参数。然后按
+    MOVQ    AX, (SP)               # 照这样写，会出现SIGBUS错误。对比之下，其猫
+    CALL    "".call(SB)            # 腻可能出现在`callback·f`上，此处可能包含
+    MOVQ    8(SP), BP              # 一些隐藏信息，因为手写汇编采用这种格式是会
+    ADDQ    $16, SP                # 编译错误的。
+    RET
+```
+
+**例二**
+
+```go
+func call(fn func(), n int) {
+	fn()
+}
+
+func testing() {
+	var n int
+	call(func() {
+		n++
+	}, 1)
+	_ = n
+}
+```
+
+其生成的汇编为：
+```asm
+TEXT	testing.func1(SB), NOSPLIT|NEEDCTXT, $16-0  # NEEDCTXT标识闭包
+	MOVQ	8(DX), AX                               # 从DX+8偏移出取出捕获参数n的指针
+	INCQ	(AX)                                    # 对参数n指针指向的内存执行++操作，n++
+	RET
+
+TEXT	testing(SB), NOSPLIT, $56-0
+	MOVQ	$0, n+16(SP)             # 初始化栈上临时变量n
+	XORPS	X0, X0                   # 清空寄存器X0
+	MOVUPS	X0, autotmp_2+32(SP)     # 用X0寄存器初始化栈上临时空间，该空间是分配给闭包的临时内存区域
+	LEAQ	autotmp_2+32(SP), AX     # 取临时内存区域指针到AX
+	MOVQ	AX, autotmp_3+24(SP)     # 不知道此步有何用意，liveness？
+	TESTB	AL, (AX)
+	LEAQ	testing.func1(SB), CX    # 将闭包函数指针存储于临时内存区域首部
+	MOVQ	CX, autotmp_2+32(SP)
+	TESTB	AL, (AX)
+	LEAQ	n+16(SP), CX             # 将临时变量n的地址存储于临时内存区域尾部
+	MOVQ	CX, autotmp_2+40(SP)
+	MOVQ	AX, (SP)                 # 将临时内存区域地址赋值给call函数入参1
+	MOVQ	$1, 8(SP)                # 将立即数1赋值给call函数入参2
+	CALL	call(SB)                 # 调用call函数
+	RET
+
+# func call(fn func(), n int)
+TEXT	call(SB), NOSPLIT, $8-16
+	MOVQ	"".fn+16(SP), DX     # 取出临时区域的地址到DX
+	MOVQ	(DX), AX             # 对首部解引用获取函数指针，存储到AX
+	CALL	AX                   # 调用闭包函数
+	RET
+```
+
+#### 直接调用C函数(FFI)
+
+我们都知道[`CGO is not Go`](https://dave.cheney.net/2016/01/18/cgo-is-not-go)，在go中调用C函数存在着巨大额外开销，而一些短小精悍的C函数，我们可以考虑绕过CGO机制，直接调用，比如`runtime`包中`vDSO`的调用、[fastcgo](https://github.com/petermattis/fastcgo)、[rustgo](https://blog.filippo.io/rustgo/)等。要直接调用C函数，就要遵循C的ABI。
+
+**amd64 C ABI**
+
+在调用C函数时，主流有2种ABI：
+
+* `Windows x64 C and C++ ABI`主要适用于各Windows平台
+* [`System V ABI`](https://www.uclibc.org/docs/psABI-x86_64.pdf)主要适用于Solaris, Linux, FreeBSD, macOS等。
+
+在ABI规定中，涉及内容繁多，下面简单介绍一下`System V ABI`中参数传递的协议：
+
+* 当参数都是整数时，参数少于7个时， 参数从左到右放入寄存器: `rdi`, `rsi`, `rdx`, `rcx`, `r8`, `r9`
+* 当参数都是整数时，参数为7个以上时， 前6个与前面一样， 但后面的依次从`右向左`放入栈中，即和32位汇编一样
+> H(a, b, c, d, e, f, g, h);<br/>
+> =><br/>
+> a->%rdi, b->%rsi, c->%rdx, d->%rcx, e->%r8, f->%r9<br/>
+> h->8(%esp)<br/>
+> g->(%esp)<br/>
+> CALL H<br/>
+* 如果参数中包含浮点数时，会利用xmm寄存器传递浮点数，其他参数的位置按顺序排列
+> ![](/images/posts/cpu/x86_64_registers_pass.png)
+* 常用寄存器有16个，分为x86通用寄存器以及r8-r15寄存器
+* 通用寄存器中，函数执行前后必须保持原始的寄存器有3个：是rbx、rbp、rsp
+* rx寄存器中，最后4个必须保持原值：r12、r13、r14、r15（保持原值的意义是为了让当前函数有可信任的寄存器，减小在函数调用过程中的保存/恢复操作。除了rbp、rsp用于特定用途外，其余5个寄存器可随意使用。）
+> ![](/images/posts/cpu/x86_64_registers_on_passing.png)
+
+![](/images/posts/cpu/x86_64_registers.png)
+
+**[issue#20427](https://github.com/golang/go/issues/20427#issuecomment-343255844)**
+
+由于该issue的存在，通常goroutine的栈空间很小，很可能产生栈溢出的错误。解决的方法有：
+
+* 直接切换到`g0`栈，`g0`栈是系统原生线程的栈，通常比较大而且与C兼容性更好，切换`g0`栈的方式可以参考[fastcgo](https://github.com/petermattis/fastcgo)中的实现，但是这有着强烈的版本依赖，不是很推荐；
+* 调用函数自身声明一个很大的栈空间，迫使goroutine栈扩张。具体参考方法可以参考[rustgo](https://blog.filippo.io/rustgo/)，该方法不能确定每一个C函数具体的栈空间需求，只能根据猜测分配一个足够大的，同时也会造成比较大的浪费，也不推荐；
+* 使用`runtime·systemstack`切换到`g0`栈，同时摆脱了版本依赖。具体方法可以参考[numa](https://github.com/lrita/numa/blob/2073a6660808a7b8d0fec85013b0301327439d97/numa_linux_amd64.s#L49-L59)。
+
 ### 编译/反编译
 因为go汇编的资料很少，所以我们需要通过编译、反汇编来学习。
 
@@ -774,7 +988,7 @@ ok      go/asm    13.005s
 // 编译
 go build -gcflags="-S"
 go tool compile -S hello.go
-go tool compile -N -S hello.go // 禁止优化
+go tool compile -l -N -S hello.go // 禁止内联 禁止优化
 // 反编译
 go tool objdump <binary>
 ```
