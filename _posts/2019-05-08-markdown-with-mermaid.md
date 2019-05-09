@@ -9,7 +9,7 @@ mermaid: true
 
 在本博客中使用[mermaid](https://mermaidjs.github.io)将文字渲染成对应的流程图、甘特图等，是非常友好且利于版本管理的方式。具体语法可以参考连接中的文档。页面代码修改可以参考[本次提交](https://github.com/lrita/lrita.github.io/commit/5e7f86066148652727867c626752368f63cd4c6e)。
 
-demo代码：
+甘特图demo代码：
 
         ```mermaid
         gantt
@@ -50,3 +50,55 @@ gantt
 
 ```
 
+流程图demo代码：
+
+        ```mermaid
+        graph TD;
+                A-->B;
+                A-->C;
+                B-->D;
+                C-->D;
+        ```
+
+显示效果：
+
+```mermaid
+graph TD;
+        A-->B;
+        A-->C;
+        B-->D;
+        C-->D;
+```
+
+时序图demo代码：
+
+        ```mermaid
+        sequenceDiagram
+        participant Alice
+        participant Bob
+        Alice->John: Hello John, how are you?
+        loop Healthcheck
+                John->John: Fight against hypochondria
+        end
+        Note right of John: Rational thoughts <br/>prevail...
+        John-->Alice: Great!
+        John->Bob: How about you?
+        Bob-->John: Jolly good!
+        ```
+
+
+显示效果：
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    Alice->John: Hello John, how are you?
+    loop Healthcheck
+        John->John: Fight against hypochondria
+    end
+    Note right of John: Rational thoughts <br/>prevail...
+    John-->Alice: Great!
+    John->Bob: How about you?
+    Bob-->John: Jolly good!
+```
