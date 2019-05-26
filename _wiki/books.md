@@ -14,6 +14,9 @@ keywords: 编程书籍
 # API 设计
 * [GRPC API Design Guide](https://cloud.google.com/apis/design/)
 
+# 数学理论
+* [排队论及其应用浅析](/images/posts/math/排队论及其应用浅析.pdf)
+
 # 工具
 * [latex入门-简版-刘海洋](/images/wiki/latex入门-简版-刘海洋.pdf)
 * [SRE-Google运维解密](/images/blog/SRE-Google.pdf)
