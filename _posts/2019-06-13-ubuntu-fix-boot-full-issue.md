@@ -58,5 +58,8 @@ df -lh
 # 6. 修复apt，完成之前的安装
 sudo apt-get -f install
 
+# 7. 修复grub
+update-grub2
+
 # 此时修复完成，可以试试其他apt命令了。
 ```
