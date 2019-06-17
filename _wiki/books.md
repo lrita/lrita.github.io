@@ -30,6 +30,9 @@ keywords: 编程书籍
 ### clickhouse
 * [MySQL-DBA解锁数据分析的新姿势-ClickHouse-新浪](/images/posts/database/clickhouse/MySQL-DBA解锁数据分析的新姿势-ClickHouse-新浪.pdf)
 
+# 数据结构
+* [优化的LRU算法：Outperforming LRU with an Adaptive Replacement Cache Algorithm](/images/posts/datastructure/ARC.pdf)
+
 # API 设计
 * [GRPC API Design Guide](https://cloud.google.com/apis/design/)
 
