@@ -11,6 +11,9 @@ keywords: 编程书籍
 * [精通cmake](/images/posts/cplusplus/mastering-cmake.pdf)
 * [如何使用identity元函数禁止模板自动推导](/images/posts/cplusplus/the-identity-metafunction.pdf)
 
+# database
+* [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
+
 # API 设计
 * [GRPC API Design Guide](https://cloud.google.com/apis/design/)
 
