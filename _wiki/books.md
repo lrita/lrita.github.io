@@ -6,6 +6,9 @@ description: 编程书籍
 keywords: 编程书籍
 ---
 
+# assembly
+* [X86汇编简介](/images/posts/tools/CS356Unit4_x86_ISA.pdf)
+
 # cpp
 * [cmake实践](/images/posts/cplusplus/CMake-Practice.pdf)
 * [精通cmake](/images/posts/cplusplus/mastering-cmake.pdf)
