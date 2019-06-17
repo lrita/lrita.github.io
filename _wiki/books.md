@@ -14,6 +14,9 @@ keywords: 编程书籍
 * [精通cmake](/images/posts/cplusplus/mastering-cmake.pdf)
 * [如何使用identity元函数禁止模板自动推导](/images/posts/cplusplus/the-identity-metafunction.pdf)
 
+# go
+* [go tool trace](/images/posts/go/Rhys-Hiltner-go-tool-trace-GopherCon-2017.pdf)
+
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 
