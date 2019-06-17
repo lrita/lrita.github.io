@@ -22,6 +22,7 @@ keywords: 编程书籍
 
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
+* [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
 
 ### canssandra
 * [CASSANDRA实战](/images/posts/database/canssandra/CASSANDRA实战[白色].pdf)
