@@ -37,3 +37,4 @@ keywords: 编程书籍
 # 工具
 * [latex入门-简版-刘海洋](/images/wiki/latex入门-简版-刘海洋.pdf)
 * [SRE-Google运维解密](/images/blog/SRE-Google.pdf)
+* [SRE工作手册（google开源书）](/images/posts/com/the-site-reliability-workbook-next18.pdf)
