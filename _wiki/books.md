@@ -17,6 +17,9 @@ keywords: 编程书籍
 # go
 * [go tool trace](/images/posts/go/Rhys-Hiltner-go-tool-trace-GopherCon-2017.pdf)
 
+# linux
+* [深度分析Linux下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
+
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 
