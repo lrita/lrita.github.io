@@ -27,6 +27,9 @@ keywords: 编程书籍
 * [CASSANDRA实战](/images/posts/database/canssandra/CASSANDRA实战[白色].pdf)
 * [Cassandra权威指南](/images/posts/database/canssandra/Cassandra权威指南.pdf)
 
+### clickhouse
+* [MySQL-DBA解锁数据分析的新姿势-ClickHouse-新浪](/images/posts/database/clickhouse/MySQL-DBA解锁数据分析的新姿势-ClickHouse-新浪.pdf)
+
 # API 设计
 * [GRPC API Design Guide](https://cloud.google.com/apis/design/)
 
