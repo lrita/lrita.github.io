@@ -23,6 +23,10 @@ keywords: 编程书籍
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 
+### canssandra
+* [CASSANDRA实战](/images/posts/database/canssandra/CASSANDRA实战[白色].pdf)
+* [Cassandra权威指南](/images/posts/database/canssandra/Cassandra权威指南.pdf)
+
 # API 设计
 * [GRPC API Design Guide](https://cloud.google.com/apis/design/)
 
