@@ -17,12 +17,18 @@ keywords: 编程书籍
 # go
 * [go tool trace](/images/posts/go/Rhys-Hiltner-go-tool-trace-GopherCon-2017.pdf)
 
+# rust
+* [在 Mac 下面调优 TiKV](https://www.jianshu.com/p/a80010878def) MacOS下调优RUST的方法
+
 # linux
 * [深度分析Linux下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
 
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 * [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
+
+### mysql
+* [深入解析MySQL replication协议](https://www.jianshu.com/p/5e6b33d8945f)
 
 ### canssandra
 * [CASSANDRA实战](/images/posts/database/canssandra/CASSANDRA实战[白色].pdf)
@@ -45,3 +51,4 @@ keywords: 编程书籍
 * [latex入门-简版-刘海洋](/images/wiki/latex入门-简版-刘海洋.pdf)
 * [SRE-Google运维解密](/images/blog/SRE-Google.pdf)
 * [SRE工作手册（google开源书）](/images/posts/com/the-site-reliability-workbook-next18.pdf)
+* [给 TiKV 开发 Grafana 的 datasource](https://www.jianshu.com/p/057fe9e57274) 资源提供API配合Grafana，提供监控的新思路
