@@ -165,3 +165,6 @@ Preference->Profiles->Keys
 ```
 左移是`B`，右移动是`F`，如下图添加快捷键
 ![iterm2-key.png](/images/wiki/iterm2-key.png)
+
+### 图床软件
+[PicGo 图片上传+管理新体验](https://github.com/Molunerfinn/PicGo)
