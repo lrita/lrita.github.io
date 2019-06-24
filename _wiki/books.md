@@ -39,6 +39,7 @@ keywords: 编程书籍
 
 # 数据结构
 * [优化的LRU算法：Outperforming LRU with an Adaptive Replacement Cache Algorithm](/images/posts/datastructure/ARC.pdf)
+* [各种数据结构的可视化展示](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
 
 # API 设计
 * [GRPC API Design Guide](https://cloud.google.com/apis/design/)
