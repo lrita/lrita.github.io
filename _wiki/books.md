@@ -23,6 +23,8 @@ keywords: 编程书籍
 # linux
 * [深度分析Linux下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
 * [看懂vmstat/mpstat数据诊断](/images/posts/filesystem/Extreme-Linux-Performance-Monitoring-and-Tuning.pdf)
+* [Linux CPU 占用率原理与 精确度分析](/images/posts/linux/Linux_CPU_Usage_Analysis.pdf)
+* [Linux Systems Performance in 50 mins](/images/posts/linux/Percona2016_LinuxSystemsPerf.pdf)
 
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
