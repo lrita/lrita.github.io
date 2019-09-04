@@ -22,9 +22,15 @@ keywords: 编程书籍
 
 # linux
 * [深度分析Linux下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
+
+## 调优诊断
 * [看懂vmstat/mpstat数据诊断](/images/posts/filesystem/Extreme-Linux-Performance-Monitoring-and-Tuning.pdf)
 * [Linux CPU 占用率原理与 精确度分析](/images/posts/linux/Linux_CPU_Usage_Analysis.pdf)
+* [震惊，用了这么多年的 CPU 利用率，其实是错的](https://mp.weixin.qq.com/s/KaDJ1EF5Y-ndjRv2iUO3cA)：如何正确理解CPU使用率，找到系能问题所在。
 * [Linux Systems Performance in 50 mins](/images/posts/linux/Percona2016_LinuxSystemsPerf.pdf)
+
+## 火焰图
+* [Linux CPI FlameGraph](http://oliveryang.net/2018/03/linux-CPI-flamegraph/) 识别负载类型(CPU/MEMORY Bound) 当CPU使用率高时，CPU行为分析，哪些stall行为在浪费CPU。如何生成CPI火焰图，如何看图。
 
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
