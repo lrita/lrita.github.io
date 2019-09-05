@@ -35,6 +35,7 @@ keywords: 编程书籍
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 * [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
+* [利用新硬件提升数据库性能.pptx](/images/posts/database/利用新硬件提升数据库性能.pptx)
 
 ### mysql
 * [深入解析MySQL replication协议](https://www.jianshu.com/p/5e6b33d8945f)
