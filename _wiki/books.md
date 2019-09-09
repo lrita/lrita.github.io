@@ -28,8 +28,10 @@ keywords: 编程书籍
 * [Linux CPU 占用率原理与 精确度分析](/images/posts/linux/Linux_CPU_Usage_Analysis.pdf)
 * [震惊，用了这么多年的 CPU 利用率，其实是错的](https://mp.weixin.qq.com/s/KaDJ1EF5Y-ndjRv2iUO3cA)：如何正确理解CPU使用率，找到系能问题所在。
 * [Linux Systems Performance in 50 mins](/images/posts/linux/Percona2016_LinuxSystemsPerf.pdf)
+* [Linux Performance Tools](/images/posts/debug/Linux.Performance.Tools.Oct.2014.pdf) 主要讲Linux系统各方面都有哪些debug工具（观察、系能压测、调优、统计）、debug方法论
 
 ## 火焰图
+* [Blazing Performance with Flame Graphs](/images/posts/debug/LISA13_Flame_Graphs.pdf) 火焰图入门，教如何看图、生成图
 * [Linux CPI FlameGraph](http://oliveryang.net/2018/03/linux-CPI-flamegraph/) 识别负载类型(CPU/MEMORY Bound) 当CPU使用率高时，CPU行为分析，哪些stall行为在浪费CPU。如何生成CPI火焰图，如何看图。
 
 # database
