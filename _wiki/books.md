@@ -1,9 +1,9 @@
 ---
 layout: wiki
-title: 编程书籍
+title: 编程书籍/文档
 categories: program books
-description: 编程书籍
-keywords: 编程书籍
+description: 编程书籍/文档
+keywords: 编程书籍/文档
 ---
 
 # assembly
@@ -33,6 +33,7 @@ keywords: 编程书籍
 ## 火焰图
 * [Blazing Performance with Flame Graphs](/images/posts/debug/LISA13_Flame_Graphs.pdf) 火焰图入门，教如何看图、生成图
 * [Linux CPI FlameGraph](http://oliveryang.net/2018/03/linux-CPI-flamegraph/) 识别负载类型(CPU/MEMORY Bound) 当CPU使用率高时，CPU行为分析，哪些stall行为在浪费CPU。如何生成CPI火焰图，如何看图。
+* [Linux Profiling At Netflix](/images/posts/debug/Linux.Profiling.at.Netflix.Feb.2015.pdf) 如何使用`perf`，可能会遇到哪些问题（栈损坏\符号丢失），如何修复它们。
 
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
