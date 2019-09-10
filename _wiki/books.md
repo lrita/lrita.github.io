@@ -51,6 +51,7 @@ keywords: 编程书籍/文档
 * [MySQL-DBA解锁数据分析的新姿势-ClickHouse-新浪](/images/posts/database/clickhouse/MySQL-DBA解锁数据分析的新姿势-ClickHouse-新浪.pdf)
 
 # 数据结构
+* [Spin](http://spinroot.com/) 一个形式化验证多线程数据结构的工具
 * [优化的LRU算法：Outperforming LRU with an Adaptive Replacement Cache Algorithm](/images/posts/datastructure/ARC.pdf)
 * [各种数据结构的可视化展示](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
 
