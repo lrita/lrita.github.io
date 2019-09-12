@@ -23,6 +23,9 @@ keywords: 编程书籍/文档
 # linux
 * [深度分析Linux下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
 
+# 文件系统
+* [Linux文件空洞与稀疏文件](/images/posts/filesystem/Linux_File_Hole_And_Sparse_Files.pdf) 讲解linux文件系统下文件空洞与稀疏文件
+
 ## 调优诊断
 * [看懂vmstat/mpstat数据诊断](/images/posts/filesystem/Extreme-Linux-Performance-Monitoring-and-Tuning.pdf)
 * [Linux CPU 占用率原理与 精确度分析](/images/posts/linux/Linux_CPU_Usage_Analysis.pdf)
