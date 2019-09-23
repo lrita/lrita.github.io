@@ -42,6 +42,14 @@ keywords: 编程书籍/文档
 ## SystemTap
 * [Using SystemTap with Linux](/images/posts/systemtap/Using-SystemTap-with-Linux.pdf) SystemTap 入门，将一些基本的语法、数据结构
 
+# 分布式原理
+
+## DHT/数据分布
+* [一致性哈希算法（一）- 问题的提出](https://writings.sh/post/consistent-hashing-algorithms-part-1-the-problem-and-the-concept) 连续四篇，从原理出发，举例几种一致性哈希算法，研究其均匀性与一致性。图文并茂，讲解细致。
+* [一致性哈希算法（二）- 哈希环法](https://writings.sh/post/consistent-hashing-algorithms-part-2-consistent-hash-ring)
+* [一致性哈希算法（三）- 跳跃一致性哈希法](https://writings.sh/post/consistent-hashing-algorithms-part-3-jump-consistent-hash)
+* [一致性哈希算法（四）- Maglev一致性哈希法](https://writings.sh/post/consistent-hashing-algorithms-part-4-maglev-consistent-hash)
+
 # database
 * [基于HLC的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 * [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
@@ -74,3 +82,4 @@ keywords: 编程书籍/文档
 * [SRE-Google运维解密](/images/blog/SRE-Google.pdf)
 * [SRE工作手册（google开源书）](/images/posts/com/the-site-reliability-workbook-next18.pdf)
 * [给 TiKV 开发 Grafana 的 datasource](https://www.jianshu.com/p/057fe9e57274) 资源提供API配合Grafana，提供监控的新思路
+* [硬件体系架构浅析](/images/posts/tools/硬件体系架构浅析.pdf) 简介常用硬件体系、特点、基本数据、性能指标
