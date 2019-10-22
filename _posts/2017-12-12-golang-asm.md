@@ -647,11 +647,11 @@ TEXT ·yyy(SB),NOSPLIT,$0-48
    CALL ·zzz(SB)                         // 调用函数zzz
    MOVQ ret_2+40(FP),      AX            // 将PC寄存器恢复
    MOVQ AX,                pc+0(SP)      //
-   MOVQ z_ret_2+40(SP),    AX            // 将zzz的返回值[2]防止在yyy返回值[2]的位置
+   MOVQ z_ret_2+40(SP),    AX            // 将zzz的返回值[2]放置在yyy返回值[2]的位置
    MOVQ AX,                ret_2+40(FP)  //
-   MOVQ z_ret_1+32(SP),    AX            // 将zzz的返回值[1]防止在yyy返回值[1]的位置
+   MOVQ z_ret_1+32(SP),    AX            // 将zzz的返回值[1]放置在yyy返回值[1]的位置
    MOVQ AX,                ret_1+32(FP)  //
-   MOVQ z_ret_0+24(SP),    AX            // 将zzz的返回值[0]防止在yyy返回值[0]的位置
+   MOVQ z_ret_0+24(SP),    AX            // 将zzz的返回值[0]放置在yyy返回值[0]的位置
    MOVQ AX,                ret_0+24(FP)  //
    RET                                   // return
 ```
