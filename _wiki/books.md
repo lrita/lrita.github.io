@@ -27,6 +27,7 @@ keywords: 编程书籍/文档
 # linux
 
 - [深度分析 Linux 下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
+- [Linux High Loadavg Analysis](http://oliveryang.net/2017/12/linux-high-loadavg-analysis-1/) 如何理解CPU load的含义，如何排查load增高的原因。此方面讲解最全面、最详细的一篇文章。
 
 # 文件系统
 
