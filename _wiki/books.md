@@ -27,7 +27,7 @@ keywords: 编程书籍/文档
 # linux
 
 - [深度分析 Linux 下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
-- [Linux High Loadavg Analysis](http://oliveryang.net/2017/12/linux-high-loadavg-analysis-1/) 如何理解CPU load的含义，如何排查load增高的原因。此方面讲解最全面、最详细的一篇文章。
+- [Linux High Loadavg Analysis](http://oliveryang.net/2017/12/linux-high-loadavg-analysis-1/) 如何理解 CPU load 的含义，如何排查 load 增高的原因。此方面讲解最全面、最详细的一篇文章。
 
 # 文件系统
 
@@ -70,6 +70,7 @@ keywords: 编程书籍/文档
 - [基于 HLC 的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 - [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
 - [利用新硬件提升数据库性能.pptx](/images/posts/database/利用新硬件提升数据库性能.pptx)
+- [数据库系统架构](/images/posts/database/Architecture-of-a-Database-System.pdf)
 
 ### mysql
 
