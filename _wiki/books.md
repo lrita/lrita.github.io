@@ -70,7 +70,7 @@ keywords: 编程书籍/文档
 - [基于 HLC 的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
 - [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
 - [利用新硬件提升数据库性能.pptx](/images/posts/database/利用新硬件提升数据库性能.pptx)
-- [数据库系统架构](/images/posts/database/Architecture-of-a-Database-System.pdf)
+- [数据库管理系统架构](/images/posts/database/Architecture-of-a-Database-System.pdf) 本文翻译自经典英文论文《Architecture of a Database System》，原文作者是 Joseph M. Hellerstein, Michael Stonebraker 和 James Hamilton。该论文可以作为中国各大高校数据库实验室研究生的入门读物，帮助学生快速了解数据库的内部运行机制。
 
 ### mysql
 
