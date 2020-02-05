@@ -93,6 +93,7 @@ keywords: 编程书籍/文档
 - [优化的 LRU 算法：Outperforming LRU with an Adaptive Replacement Cache Algorithm](/images/posts/datastructure/ARC.pdf)
 - [各种数据结构的可视化展示](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
 - [Dynamic-Sized-Nonblocking-Hash-Tables](/images/posts/datastructure/Dynamic-Sized-Nonblocking-Hash-Tables.pdf), [PPT](/images/posts/datastructure/Dynamic-Sized_Nonblocking_Hash_Tables.pptx) 一种支持动态调整 bucket 大小，存储元素无限制的并发哈希表，但是其 bucket 层面可以做到 lockfree，但是 bucket 内部需要采用其他数据结构保证 lockfree。
+- [Log Structured Merge Tree](/images/posts/database/lsmtree-170129180333.pdf) 介绍`Log Structured Merge Tree`的历史以及原理。
 
 # API 设计
 
