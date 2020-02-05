@@ -67,11 +67,12 @@ keywords: 编程书籍/文档
 
 # database
 
-- [基于 HLC 的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf)
-- [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf)
+- [基于混合逻辑时钟的分布式事务实现深度剖析](/images/posts/database/基于HLC的分布式事务实现深度剖析.pdf) 讲述数据库为什么需要时钟，在分布式环境下如何解决时钟，对比优劣。
+- [数据库系统的优化与调优：从理论到实践](/images/posts/database/数据库系统的优化与调优：从理论到实践.pdf) 讲述了从串行和并行的角度如何优化。排队论揭示优化的上限。以及在 MySQL 中的一些实践，以及结合硬件特性的一些优化案例。
 - [利用新硬件提升数据库性能.pptx](/images/posts/database/利用新硬件提升数据库性能.pptx)
 - [数据库管理系统架构](/images/posts/database/Architecture-of-a-Database-System.pdf) 本文翻译自经典英文论文《Architecture of a Database System》，原文作者是 Joseph M. Hellerstein, Michael Stonebraker 和 James Hamilton。该论文可以作为中国各大高校数据库实验室研究生的入门读物，帮助学生快速了解数据库的内部运行机制。
 - [Oceanbase 内存事务引擎](/images/posts/database/OceanBase-memory-transaction-engine.pdf) 粗略讲解了一下 Oceanbase 的事务引擎如何工作，处理事务并发、实现不同的事务隔离级别、并发事务回放等。
+- [闪存数据概念与技术](/images/posts/database/flash_database_book.pdf) 介绍 SSD、Flash 特性和技术特点，以及针对其特点的数据技术。
 
 ### mysql
 
