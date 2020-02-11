@@ -94,6 +94,7 @@ keywords: 编程书籍/文档
 - [各种数据结构的可视化展示](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
 - [Dynamic-Sized-Nonblocking-Hash-Tables](/images/posts/datastructure/Dynamic-Sized-Nonblocking-Hash-Tables.pdf), [PPT](/images/posts/datastructure/Dynamic-Sized_Nonblocking_Hash_Tables.pptx) 一种支持动态调整 bucket 大小，存储元素无限制的并发哈希表，但是其 bucket 层面可以做到 lockfree，但是 bucket 内部需要采用其他数据结构保证 lockfree。
 - [Log Structured Merge Tree](/images/posts/database/lsmtree-170129180333.pdf) 介绍`Log Structured Merge Tree`的历史以及原理。
+- [现代数据库背后的算法](/images/posts/datastructure/Algorithms_Behind_Modern_Storage_Systems.pdf) 主要介绍 B-TREE 和 LSM 算法，并进行对比。哈佛大学的 DASlab(Data System Laboratory)研究员总结数据库系统三个关键优化因子是：_read overhead(read optimized)_，*update overhead(write optimized)*和*memory overhead(space optimized)*，简称*RUM*，对于一个数据库系统，最多只能将其中一项优化到极致，即另两项必须付出代价，比如 LSM，追求写优化(所以操作都是顺序写，更新操作效率高)，就得付出读放大、空间放大的代价（写放大来自于*compaction*，是优化读性能的代价）。
 
 # API 设计
 
