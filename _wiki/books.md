@@ -112,3 +112,4 @@ keywords: 编程书籍/文档
 - [SRE 工作手册（google 开源书）](/images/posts/com/the-site-reliability-workbook-next18.pdf)
 - [给 TiKV 开发 Grafana 的 datasource](https://www.jianshu.com/p/057fe9e57274) 资源提供 API 配合 Grafana，提供监控的新思路
 - [硬件体系架构浅析](/images/posts/tools/硬件体系架构浅析.pdf) 简介常用硬件体系、特点、基本数据、性能指标
+- [现代网络负载均衡与代理导论](https://arthurchiao.github.io/blog/intro-to-modern-lb-and-proxy-zh/) 充分了解负载均衡的实质与效用
