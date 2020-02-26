@@ -73,6 +73,9 @@ keywords: 编程书籍/文档
 - [数据库管理系统架构](/images/posts/database/Architecture-of-a-Database-System.pdf) 本文翻译自经典英文论文《Architecture of a Database System》，原文作者是 Joseph M. Hellerstein, Michael Stonebraker 和 James Hamilton。该论文可以作为中国各大高校数据库实验室研究生的入门读物，帮助学生快速了解数据库的内部运行机制。
 - [Oceanbase 内存事务引擎](/images/posts/database/OceanBase-memory-transaction-engine.pdf) 粗略讲解了一下 Oceanbase 的事务引擎如何工作，处理事务并发、实现不同的事务隔离级别、并发事务回放等。
 - [闪存数据概念与技术](/images/posts/database/flash_database_book.pdf) 介绍 SSD、Flash 特性和技术特点，以及针对其特点的数据技术。
+- [Dynamo: Amazon's Highly Available Key-value Store(中文译本)](https://arthurchiao.github.io/blog/amazon-dynamo-zh/)
+- [Bigtable: A Distributed Storage System for Structured Data (中文译本)](https://arthurchiao.github.io/blog/google-bigtable-zh/)
+- [Ceph: A Scalable, High-Performance Distributed File System (中文译本)](https://arthurchiao.github.io/blog/ceph-osdi-zh/)
 
 ### mysql
 
