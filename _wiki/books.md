@@ -15,6 +15,7 @@ keywords: 编程书籍/文档
 - [cmake 实践](/images/posts/cplusplus/CMake-Practice.pdf)
 - [精通 cmake](/images/posts/cplusplus/mastering-cmake.pdf)
 - [如何使用 identity 元函数禁止模板自动推导](/images/posts/cplusplus/the-identity-metafunction.pdf)
+- [INTRODUCTION TO LLVM](/images/posts/cplusplus/19_LLVM.pdf) LLVM 的基本介绍，组成部分，编译流程，LLVM Pass
 
 # go
 
@@ -28,6 +29,7 @@ keywords: 编程书籍/文档
 
 - [深度分析 Linux 下双网卡绑定七种模式](/images/posts/linux/深度分析Linux下双网卡绑定七种模式.pdf)
 - [Linux High Loadavg Analysis](http://oliveryang.net/2017/12/linux-high-loadavg-analysis-1/) 如何理解 CPU load 的含义，如何排查 load 增高的原因。此方面讲解最全面、最详细的一篇文章。
+- [Linux 内幕](https://0xax.gitbooks.io/linux-insides/content/)
 
 # 文件系统
 
@@ -57,6 +59,7 @@ keywords: 编程书籍/文档
 - [分布式系统一致性的发展历史 (一)](https://danielw.cn/history-of-distributed-systems-1) 本文的目的就是带你回顾从 70 年代起, 到如今百花齐放的分布式系统中一致性问题的发展和演化，主要讲分布式时序以及线性一致性和顺序一致性
 - [分布式系统一致性的发展历史 (二)](https://danielw.cn/history-of-distributed-systems-2) 根据分布式故障作为引子，讲述分布式共识的历史。
 - [请不要再称数据库是 CP 或者 AP](https://blog.the-pans.com/cap/) 讲解 CAP 的真实含义及其讨论范围，及其为什么在网络分区的情况下，我们要放弃可用性和一致性中的一个。
+- [awesome-distributed-systems](https://github.com/rShetty/awesome-distributed-systems) 分布式博库、论文集合
 
 ## DHT/数据分布
 
