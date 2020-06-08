@@ -6,7 +6,7 @@ description: crc64 redis algorithm
 keywords: crc64 redis algorithm
 ---
 
-# CRC算法
+# CRC 算法
 
 [循环冗余校验-CRC](https://zh.wikipedia.org/wiki/循環冗餘校驗)是常用的一种校验数据一致性的算法。关于其原理与发展可以参考其维基百科。
 
@@ -16,13 +16,14 @@ keywords: crc64 redis algorithm
 
 可以看出，当因特尔提出了`slice-by-x`的优化后，其速度得到的飞跃。
 
-然而CRC算法的变种数量非常之多，但是已经被实现的那些优化只是少数的几种，比如`ISO`、`ECMA`等。同时这些优化后的代码已经丢失的大量中间过程，是的其难以被移植到其他变种之上。
+然而 CRC 算法的变种数量非常之多，但是已经被实现的那些优化只是少数的几种，比如`ISO`、`ECMA`等。同时这些优化后的代码已经丢失的大量中间过程，是的其难以被移植到其他变种之上。
 
 # 优化变种算法
 
-经过一番研究考证，CRC64变种采用`slice-by-x`优化的主要步骤为：
+经过一番研究考证，CRC64 变种采用`slice-by-x`优化的主要步骤为：
 
-* 将原始查询表转化为8重表格
+- 将原始查询表转化为 8 重表格
+
 ```
 // table[0] 是原始查询表， table[1...7] 是生成的8重表格
 for (n = 0; n < 256; n++) {
@@ -34,7 +35,9 @@ for (n = 0; n < 256; n++) {
     }
 }
 ```
-* 优化CRC算法，每个循环计算8个字节
+
+- 优化 CRC 算法，每个循环计算 8 个字节
+
 ```
 while (len >= 8) {
     crc ^= *(uint64_t *)byte; // 小端计算方式
@@ -58,6 +61,15 @@ while (len) {
 
 [github.com/lrita/crc64](https://github.com/lrita/crc64)采用上述方法，优化了`redis`使用的 CRC64 变种算法，使其速度从`381.29 MB/s`提升到`1474.16 MB/s`.
 
+# PYCRC
+
+pycrc[^2]可以生成不同变种 CRC 算法的优化 C 代码，变种的核心参数可以通过参数`--width --poly --reflect-in --xor-in --reflect-out --xor-out`进行相应调整。支持的优化算法有`bit-by-bit, bbb, bit-by-bit-fast, bbf, table-driven, tbl`等。例如：
+
+```sh
+./pycrc.py --generate=c --algorithm=table-driven --model=crc-32 --slice-by=4
+```
+
 # 参考
 
 [^1]: [Fast CRC32](https://create.stephan-brumme.com/crc32/)
+[^2]: [pycrc](https://github.com/tpircher/pycrc)
