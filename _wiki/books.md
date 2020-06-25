@@ -34,6 +34,12 @@ keywords: 编程书籍/文档
 # 文件系统
 
 - [Linux 文件空洞与稀疏文件](/images/posts/filesystem/Linux_File_Hole_And_Sparse_Files.pdf) 讲解 linux 文件系统下文件空洞与稀疏文件
+- [Linux 内核文件 Cache 机制](/images/posts/filesystem/Linux.Kernel.Cache.pdf)
+- [Linux 内核写文件过程](/images/posts/filesystem/Linux.Kernel.Write.Procedure.pdf)
+- [Linux 内核延迟写机制](http://www.ilinuxkernel.com/files/Linux.Kernel.Delay.Write.pdf)
+- [Linux 通用块设备层](/images/posts/filesystem/Linux.Generic.Block.Layer.pdf)
+- [Linux 内核 IO 调度层](/images/posts/filesystem/Linux.Kernel.IO.Scheduler.pdf)
+- [Linux 内核读文件过程](/images/posts/filesystem/Linux.Kernel.Read.Procedure.pdf)
 
 # 调优诊断
 
