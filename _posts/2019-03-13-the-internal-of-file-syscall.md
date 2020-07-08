@@ -116,3 +116,14 @@ _注：文件操作对应的偏移存储于`struct file`中，每个`open`的文
 对于非`O_DIRECT`标记打开的文件，其内部逻辑与`write`流程基本一致，最终将数据拷贝到`pagecache`中，整个调用实际都是同步阻塞的。
 
 对于`O_DIRECT`标记打开的文件，在文件系统层(`vfs/ext4`等)仍然是同步的，在一些文件系统日志、文件系统数据块与磁盘映射、[bio 请求队列满](https://zhuanlan.zhihu.com/p/100026388)等情况下，仍然会被同步阻塞。当经过文件系统层后，被封装成一个`bio`请求时，且 bio 请求队列未满时，该请求进入 bio 请求队列后即刻返回，从而形成一个异步写事件。
+
+目前异步 IO 使用最多的是 `linux native aio`，不幸的是，其存在着诸多约束[^1]：
+
+- 最大的限制无疑是仅支持 direct io。而 `O_DIRECT` 存在 bypass 缓存和 size 对齐等限制，直接影响了 aio 在很多场景的使用。而针对 buffered io，其表现为同步。
+- 即使满足了所有异步 IO 的约束，有时候还是可能会被阻塞。例如，等待元数据 IO，或者等待 block 层 request 的分配等。
+- 存在额外的拷贝开销，每个 IO 提交需要拷贝 64+8 字节(`iocb` 64 字节，`iocbpp` 指针 8 字节)，每个 IO 完成需要拷贝 32 字节，这 104 字节的拷贝在大量小 IO 的场景下影响很可观。同时，需要非常小心地使用完成事件以避免丢事件。
+- IO 需要至少 2 个系统调用（submit + wait-for-completion)，这在 spectre/meltdown 开启的前提下性能下降非常严重。
+
+# 参考
+
+[^1]: [io_uring 新异步 IO 机制](https://mp.weixin.qq.com/s?__biz=MzUxNjE3MTcwMg==&mid=2247484448&idx=1&sn=29e791cf602b8614c9d288c1859407f7&chksm=f9aa36f9ceddbfef2a28f3593f69dffedb71a85342dc28764aa728a4ea3290bd86761abf6445&mpshare=1&scene=23&srcid=0708pSauI4c7ShmXbZrQlqUl&sharer_sharetime=1594175513526&sharer_shareid=0d25aaa0141cb845ff5dc57c13b23352%23rd)
