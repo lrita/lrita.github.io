@@ -16,6 +16,7 @@ keywords: 编程书籍/文档
 - [精通 cmake](/images/posts/cplusplus/mastering-cmake.pdf)
 - [如何使用 identity 元函数禁止模板自动推导](/images/posts/cplusplus/the-identity-metafunction.pdf)
 - [INTRODUCTION TO LLVM](/images/posts/cplusplus/19_LLVM.pdf) LLVM 的基本介绍，组成部分，编译流程，LLVM Pass
+- [ELF Handling For Thread-Local Storage](/images/posts/cplusplus/ELF_Handling_For_Thread-Local_Storage.pdf) 讲解线程本地存储在不同平台、不同场景下内部的实现。
 
 # go
 
