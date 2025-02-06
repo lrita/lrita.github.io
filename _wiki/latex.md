@@ -28,3 +28,4 @@ MacOS上写文章、画图经常需要用到公式、制图等，很少有一种
 * [mathpix离线安装包](/images/posts/tools/SnippingTool-v1.3.1.54.dmg)
 * [LaTeX开源小屋](http://www.latexstudio.net)
 * [latex入门-简版](/images/wiki/latex入门-简版-刘海洋.pdf)
+* [LaTeX符号大全](https://juejin.cn/post/7267919834185056271)
