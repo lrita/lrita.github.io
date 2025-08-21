@@ -1,4 +1,4 @@
 #!/bin/bash
 eval "$(rbenv init -)"
-rbenv global 2.5.1
+rbenv global 3.1.4
 # bundle exec jekyll serve
