@@ -11,7 +11,7 @@
     };
     var disqus_loaded = false;
     $(function() {
-        $('.show_disqus_comment').on('click', function() { // DON'T EDIT BELOW THIS LINE
+        $('.show_disqus_comment').on('click', function() { /* DON'T EDIT BELOW THIS LINE */
             $(this).html('加载中...');
             var that = this;
             if (!disqus_loaded) {
@@ -54,7 +54,7 @@
               this.page.identifier = '{{ page.url }}';
               this.page.title = '{{ page.title }}';
             };
-            (function() { // DON'T EDIT BELOW THIS LINE
+            (function() { /* DON'T EDIT BELOW THIS LINE */
               var d = document, s = d.createElement('script');
 
               s.type = 'text/javascript';
@@ -72,8 +72,8 @@
       {% endif %}
     {% when 'gitment' %}
         <div id="container"></div>
-        <link rel="stylesheet" href="https://imsun.github.io/gitment/style/default.css">
-        <script src="https://imsun.github.io/gitment/dist/gitment.browser.js"></script>
+        <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/imsun.github.io/gitment/style/default.css">
+        <script src="https://fastly.jsdelivr.net/gh/imsun.github.io/gitment/dist/gitment.browser.js"></script>
         <script>
         var gitment = new Gitment({
             id: '{{ page.url | truncate: 50, '' }}',
@@ -83,13 +83,14 @@
                 client_id: '{{ site.gitment.oauth.client_id }}',
                 client_secret: '{{ site.gitment.oauth.client_secret }}',
             },
-        })
-        gitment.render('container')
+        });
+        gitment.render('container');
         </script>
     {% when 'gitalk' %}
         <div id="gitalk-container"></div>
-        <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
-        <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+        <!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/npm/gitalk@1/dist/gitalk.css"> -->
+        <link rel="stylesheet" href="{{ assets_base_url }}/assets/vendor/gitalk/gitalk.css">
+        <script src="https://fastly.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
         <script>
         var gitalk = new Gitalk({
             id: '{{ page.url | truncate: 50, '' }}',
@@ -100,8 +101,46 @@
             admin: ['{{ site.gitalk.owner }}'],
             labels: ['gitment'],
             perPage: 50,
-        })
-        gitalk.render('gitalk-container')
+        });
+        gitalk.render('gitalk-container');
+        </script>
+  {% when 'utterances' %}
+        <script src="https://utteranc.es/client.js"
+                repo="{{ site.utterances.repo }}"
+                issue-term="title"
+                label="gitment"
+                theme="github-light"
+                crossorigin="anonymous"
+                async>
+        </script>
+  {% when 'beaudar' %}
+        <script src="https://beaudar.lipk.org/client.js"
+                repo="{{ site.beaudar.repo }}"
+                issue-term="title"
+                issue-label="{{ page.url | truncate: 50, '' }}"
+                label="gitment"
+                theme="github-light"
+                comment-order="desc"
+                input-position="top"
+                crossorigin="anonymous"
+                async>
+        </script>
+  {% when 'giscus' %}
+        <script src="https://giscus.app/client.js"
+                data-repo="{{ site.giscus.repo }}"
+                data-repo-id="{{ site.giscus.repo-id }}"
+                data-category="{{ site.giscus.category }}"
+                data-category-id="{{ site.giscus.category-id }}"
+                data-mapping="title"
+                data-strict="1"
+                data-reactions-enabled="1"
+                data-emit-metadata="0"
+                data-input-position="top"
+                data-theme="light"
+                data-lang="zh-CN"
+                data-loading="lazy"
+                crossorigin="anonymous"
+                async>
         </script>
   {% endcase %}
 {% endif %}

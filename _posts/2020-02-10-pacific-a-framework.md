@@ -4,6 +4,7 @@ title: PacificA 微软设计的分布式存储框架
 categories: [distributed-programming]
 description: distributed programming
 keywords: distributed programming
+mathjax: true
 ---
 
 # 简介

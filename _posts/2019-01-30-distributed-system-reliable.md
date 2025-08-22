@@ -4,6 +4,7 @@ title: 分布式存储系统可靠性-注解
 categories: [distributed-programming]
 description: distributed programming
 keywords: distributed programming
+mathjax: true
 ---
 
 > 本文内容来源于[《分布式存储系统可靠性-如何估算》](https://work-jlsun.github.io/2017/01/24/storage-durablity.html)、[《分布式存储系统可靠性-系统估算示例》](https://work-jlsun.github.io/2017/02/18/storage-durablity-2.html)和[《分布式存储系统可靠性-设计模式》](https://work-jlsun.github.io/2017/02/19/storage-durablity-design-pattern.html)三篇文章。增补相关注释和个人理解，修正了一些原文中的错误。

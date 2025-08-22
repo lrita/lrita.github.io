@@ -10,7 +10,49 @@ description: "lrita's blog"
 keywords: 源代码, golang, c, cpp, c++, rust
 timezone: Asia/Shanghai
 encoding: "utf-8"
-side_bar_repo_limit: 5
+# 页面左下角显示的年份
+since: 2016
+# 源码仓库，请替换成自己的
+repository: lrita/lrita.github.io
+# 对 css 和 js 资源的 cdn 加速配置
+cdn:
+    jsdelivr:
+        enabled: false
+# 可选组件配置
+components:
+    # 分享
+    # weibo,qq,wechat,douban,qzone,linkedin,facebook,twitter
+    share:
+        enabled: false
+        hide-platforms: qq,facebook
+    # 不蒜子访问统计
+    busuanzi:
+        enabled: false
+        start_date: 2020-05-03
+    # My Popular Repositories
+    side_bar_repo:
+        enabled: true
+        limit: 5
+    # 文章字数统计
+    word_count:
+        enabled: true
+    # 页面右上角，以及「关于」页面的二维码
+    # 修改图片请替换 assets/images/qrcode.jpg
+    qrcode:
+        enabled: false
+        # image_alt: 闷骚的程序员
+    # 维基索引页使用哪种视图，支持 列表（list）/分类（cate）
+    wiki:
+        view: cate
+    # 图片灯箱效果功能
+    fancybox:
+        enabled: false
+# 压缩页面内容
+compress_html:
+  clippings: all
+  comments: ["<!--", "-->"]
+# 代码高亮风格，支持的 theme 列表见 https://github.com/mzlogin/rouge-themes
+highlight_theme: github
 
 # ---------------- #
 #      Author      #
@@ -45,6 +87,7 @@ navs:
   -
     href: /links/
     label: 链接
+    mobile-hidden: true
 
   -
     href: /about/
@@ -56,18 +99,34 @@ navs:
 subscribe_rss: /feed.xml
 
 # ---------------- #
+#      INDEX       #
+# ---------------- #
+index:
+    banner:
+        # 首页 banner 区文字颜色
+        color: "#fff"
+        # 首页导航栏文字颜色
+        nav-color: "rgba(255, 255, 255, .5)"
+        # 首页 banner 区背景颜色
+        background-color: "#4183c4"
+        # 首页 banner 区背景图片
+        # background-image: "/assets/images/octicons-bg.png"
+        # background-repeat: "no-repeat"
+        # background-size: "cover"
+
+# ---------------- #
 #      Jekyll      #
 # ---------------- #
 markdown: kramdown
 kramdown:
     input: GFM
 highlighter: rouge
-paginate: 8
+paginate: 10
 lsi: false
 quiet: false
 excerpt_separator: "\n\n"
 permalink: /:year/:month/:day/:title/
-gems:
+plugins:
     - jekyll-github-metadata
     - rouge
 #     - jekyll-html-pipeline
@@ -81,19 +140,17 @@ collections:
         output: true
         permalink: /wiki/:path/
 
-repository: lrita/lrita.github.io
-
 webrick:
   headers:
     Access-Control-Allow-Origin: "*"
 # ---------------- #
 #      Comments    #
 # ---------------- #
-# support provider: disqus, gitment, gitalk
+# support provider: disqus, gitment, gitalk, utterances, beaudar, giscus
 comments_provider: gitalk
 # !!!重要!!! 请修改下面这些信息为你自己申请的
 # !!!Important!!! Please modify infos below to yours
-# https://disqus.com
+# disqus 配置参考：https://disqus.com
 disqus:
     username:
 # https://imsun.net/posts/gitment-introduction/
@@ -103,7 +160,7 @@ gitment:
     oauth:
         client_id: 70809c20848b57cbfd8f
         client_secret: 6594f8cb9d98c40af81ef0049d12e29fed81b240
-# https://github.com/gitalk/gitalk#install
+# gitalk 配置参考：https://github.com/gitalk/gitalk#install
 gitalk:
     owner: tupian
     repo: blog-comments
@@ -113,7 +170,23 @@ gitalk:
 lazy_load_disqus : false
 
 # ---------------- #
-#    Analytics     #
+#      Search      #
+# ---------------- #
+simple_jekyll_search:
+    # 是否支持全文搜索
+    fulltext: false
+    # 最多显示多少条搜索结果
+    limit: 10
+
+# ---------------- #
+#      Google      #
 # ---------------- #
 google:
     analytics_id: UA-110226116-1
+    adsense:
+        enabled: false
+        footer: true
+        sidebar: true
+        sidebar-detail: true
+        content_header: false
+        content_footer: false

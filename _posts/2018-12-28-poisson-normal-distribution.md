@@ -4,6 +4,7 @@ title: 概率分布与泊松分布、正态分布
 categories: [math, tool]
 description: math, tool
 keywords: math, tool
+mathjax: true
 ---
 
 *注：本文中数学符号比较多，可能加载显示会比较慢。*

@@ -5,21 +5,29 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <title>{% if page.title %}{{ page.title }} &mdash; {% endif %}{{ site.title }}</title>
-    <link rel="stylesheet" href="{{ site.url }}/assets/vendor/primer-css/css/primer.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/vendor/primer-markdown/dist/user-content.min.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/vendor/octicons/octicons/octicons.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/components/collection.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/components/repo-card.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/sections/repo-list.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/sections/mini-repo-list.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/components/boxed-group.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/globals/common.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/vendor/share.js/dist/css/share.min.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/globals/responsive.css">
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/posts/index.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/vendor/primer-css/css/primer.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/components/collection.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/components/repo-card.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/sections/repo-list.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/components/boxed-group.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/globals/common.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/globals/responsive.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/posts/index.css">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/vendor/octicons/octicons/octicons.css">
+    {% assign highlight_base_url = 'https://mazhuang.org/rouge-themes/dist' %}
+    {% if site.cdn.jsdelivr.enabled %}
+    {% assign highlight_base_url = 'https://fastly.jsdelivr.net/gh/mzlogin/rouge-themes@master/dist' %}
+    {% endif %}
+    <link rel="stylesheet" href="{{ highlight_base_url }}/{{ site.highlight_theme}}.css">
+    {% if site.components.share.enabled %}
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/vendor/share.js/dist/css/share.min.css">
+    {% endif %}
+    {% if site.components.fancybox.enabled %}
+    <link rel="stylesheet" href="https://fastly.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.css"/>
+    {% endif %}
     <!-- Latest compiled and minified CSS -->
     {% for css in page.css %}
-    <link rel="stylesheet" href="{{ site.url }}/assets/css/{{css}}">
+    <link rel="stylesheet" href="{{ assets_base_url }}/assets/css/{{css}}">
     {% endfor %}
 
     {% if site.ios_app_name %}
@@ -28,7 +36,7 @@
     {% endif %}
     <link rel="canonical" href="{{ page.url | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="{{ site.title }}" href="{{ site.url }}{{ site.subscribe_rss }}">
-    <link rel="shortcut icon" href="{{ site.url }}/favicon.ico">
+    <link rel="shortcut icon" href="{{ assets_base_url }}/favicon.ico">
     {% if page.title %}
     <meta property="og:title" content="{{ page.title }}">
       {% if page.keywords %}
@@ -66,40 +74,23 @@
     {% if page.date %}
     <meta property="article:published_time" content="{{ page.date | date: '%Y-%m-%d' }}">
     {% endif %}
-    <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/latest.js?config=TeX-MML-AM_CHTML"></script>
-    <script src="{{ site.url }}/assets/vendor/jquery/dist/jquery.min.js"></script>
-    <script src="{{ site.url }}/assets/js/jquery-ui.js"></script>
-    <script src="{{ site.url }}/assets/js/main.js"></script>
 
-    {% if page.mermaid %}
-    <script type="text/javascript" src="{{ site.url }}/assets/vendor/mermaid.js/8.0.0/mermaid.min.js"></script>
+    <script src="{{ assets_base_url }}/assets/vendor/jquery/dist/jquery.min.js"></script>
+    <script src="{{ assets_base_url }}/assets/js/main.js"></script>
+
+    {% if site.google.adsense.enabled and site.url contains 'mazhuang.org' %}
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7093222719567591" crossorigin="anonymous"></script>
+    {% endif %}
+
+    {% if site.google.analytics_id %}
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.google.analytics_id }}"></script>
     <script>
-      var config = {
-        startOnLoad:true,
-        {% if page.mermaid_stype %}
-        theme: page.mermaid_stype,
-        {% endif %}
-        flowchart:{ useMaxWidth:false, htmlLabels:true}
-      };
-      mermaid.initialize(config);
-      $(function() {
-        var elements = document.getElementsByClassName("language-mermaid");
-        for (var i = elements.length; i--;) {
-          element = elements[i];
-          var graphDefinition = element.innerText;
-          if (graphDefinition) {
-            var svg = mermaid.render('ha_mermaid_' + i, graphDefinition, function(svg){});
-            if (svg) {
-              var svgElement = document.createElement('div');
-              preNode = element.parentNode;
-              svgElement.innerHTML = svg;
-              svgElement.setAttribute('class', 'mermaid');
-              svgElement.setAttribute('data-processed', 'true');
-              preNode.parentNode.replaceChild(svgElement, preNode);
-            }
-          }
-        }
-      });
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', '{{ site.google.analytics_id }}');
     </script>
     {% endif %}
 </head>
@@ -114,8 +105,9 @@
             </button>
             <nav class="site-header-nav" role="navigation">
                 {% for nav in site.navs %}
-                <a href="{{ nav.href }}" class="{% if page.menu == nav.label %} selected {% endif %} site-header-nav-item" target="{{ nav.target | default: _self }}" title="{{ nav.label }}">{{ nav.label }}</a>
+                <a href="{{ site.url }}{{ nav.href }}" class="{% if nav.mobile-hidden %}mobile-hidden {% endif %}{% if page.menu == nav.label %}selected {% endif %}site-header-nav-item" target="{{ nav.target | default: _self }}" title="{{ nav.label }}">{{ nav.label }}</a>
                 {% endfor %}
+                <a class="mobile-hidden" href="{{ site.url }}{{ site.subscribe_rss }}"><span class="octicon octicon-rss" style="color:orange;"></span></a>
             </nav>
         </div>
     </header>

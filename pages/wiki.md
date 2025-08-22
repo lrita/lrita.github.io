@@ -4,6 +4,7 @@ title: Wiki
 description: 好记性不如烂笔头
 keywords: 维基, Wiki
 comments: false
+copyright: false
 menu: 维基
 permalink: /wiki/
 ---

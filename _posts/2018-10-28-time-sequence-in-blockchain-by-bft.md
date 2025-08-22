@@ -4,6 +4,7 @@ title: 使用PBFT和Vector Clock解决区块链时序问题
 categories: [blockchain]
 description: blockchain
 keywords: blockchain
+mathjax: true
 ---
 
 # 背景

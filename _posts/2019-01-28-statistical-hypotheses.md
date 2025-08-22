@@ -4,6 +4,7 @@ title: 假设检验-显著性检验
 categories: [math, tool]
 description: math tool
 keywords: math tool
+mathjax: true
 ---
 
 # 基本概念

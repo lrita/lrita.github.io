@@ -4,6 +4,7 @@ title: Lamport's Logical Clocks 和 Vector Clock
 categories: [distributed-programming]
 description: distributed system
 keywords: distributed system
+mathjax: true
 ---
 
 _编：关于`Vector Clock`之前看过几眼，但是多数讲解地都不是很清楚，一直没太弄清楚。直到有一天，又看了看，终于弄明白了。_

@@ -4,6 +4,7 @@ title: Copyset与多副本
 categories: [distributed-programming]
 description: distributed-programming
 keywords: distributed-programming
+mathjax: true
 ---
 
 随机分布副本的方式被广泛引用到分布式领域。但是，随着集群规模的扩大，数据丢失的可能性直线上升。

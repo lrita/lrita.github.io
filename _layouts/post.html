@@ -1,6 +1,11 @@
 ---
 layout: default
 ---
+
+{% assign assets_base_url = site.url %}
+{% if site.cdn.jsdelivr.enabled %}
+{% assign assets_base_url = "https://fastly.jsdelivr.net/gh/" | append: site.repository | append: '@master' %}
+{% endif %}
 <section class="collection-head small geopattern" data-pattern-id="{{ page.title | truncate: 15, ''}}">
 <div class="container">
   <div class="columns">
@@ -19,7 +24,18 @@ layout: default
             <a href="{{ site.url }}/categories/#{{ cat }}" title="{{ cat }}">{{ cat }}</a>
           </span>
           {% endfor %}
+          {% if site.components.word_count.enabled %}
+          <span class="meta-info">
+            <span class="octicon octicon-clock"></span>
+            共 {{ page.content | strip_html | strip_newlines | remove: " " | size }} 字，约 {{ page.content | strip_html | strip_newlines | remove: " " | size | divided_by: 350 | plus: 1 }} 分钟
+          </span>
+          {% endif %}
         </div>
+      </div>
+    </div>
+    <div class="column one-fourth mobile-hidden">
+      <div class="collection-title">
+        {% include sidebar-qrcode.html %}
       </div>
     </div>
   </div>
@@ -29,12 +45,15 @@ layout: default
 <section class="container content">
 <div class="columns">
   <div class="column three-fourths" >
+    {% include content-header-ad.html %}
     <article class="article-content markdown-body">
     {{ content }}
+    {% include copyright.html %}
     </article>
     <div class="share">
       {% include sns-share.html %}
     </div>
+    {% include content-footer-ad.html %}
     <div class="comment">
       {% include comments.html %}
     </div>
@@ -42,6 +61,7 @@ layout: default
   <div class="column one-fourth">
     {% include sidebar-search.html %}
     {% include sidebar-post-nav.html %}
+    {% include sidebar-detail-ad.html %}
   </div>
 </div>
 </section>

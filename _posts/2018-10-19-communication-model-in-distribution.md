@@ -4,6 +4,7 @@ title: 分布式系统中的通讯模型
 categories: [distributed-programming]
 description: distributed system
 keywords: distributed system
+mathjax: true
 ---
 
 人们在谈及分布式系统的理论时，首先要明确其前置的`通讯模型`（有的地方也称为`时间模型`）的约定。比较常见的有`同步网络模型`、`异步网络模型`和`部分同步网络模型`[^1]。

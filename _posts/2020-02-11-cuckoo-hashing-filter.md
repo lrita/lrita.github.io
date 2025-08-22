@@ -4,6 +4,7 @@ title: Cuckoo Hashing and Filter
 categories: [datastructure]
 description: datastructure Cuckoo-Hashing Cuckoo-Filter
 keywords: datastructure Cuckoo-Hashing Cuckoo-Filter
+mathjax: true
 ---
 
 # 介绍

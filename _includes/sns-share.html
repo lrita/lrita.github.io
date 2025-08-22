@@ -1,1 +1,3 @@
-<div class="share-component"></div>
+{% if site.components.share.enabled %}
+<div class="share-component" data-disabled='{{site.components.share.hide-platforms}}'></div>
+{% endif %}

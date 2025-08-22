@@ -4,6 +4,7 @@ title: LSM-TREE 存储结构的空间放大
 categories: [database]
 description: database lsm space amplification
 keywords: lsm 空间放大
+mathjax: true
 ---
 
 `log structured merge tree`[^1]已经是现代数据库常用的一种数据结构，其优点就是能够将全部操作都转化为写入，从而使磁盘的连续写入优势发挥最大等。但是会带来`写放大`和`空间放大`。但是`读放大`、`写放大`和`空间放大`是一对矛盾体[^2] [^3] [^4]。因此，由于有着不同的取舍，就有了不同的`compaction`算法。使用不同的`compaction`算法，导致的`空间放大`会有不同，但是BigTable, HBase、Cassandra、LevelDB、RocksDB等都使用了`leveled compaction`[^5]，则我们根据`leveled compaction`算法来谈谈`空间放大`。

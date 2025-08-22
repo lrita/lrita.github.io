@@ -4,6 +4,7 @@ title: 每个程序员都应该了解的内存知识-0
 categories: [linux, memory]
 description: linux memory
 keywords: linux memory
+mathjax: true
 ---
 
 ### 注
