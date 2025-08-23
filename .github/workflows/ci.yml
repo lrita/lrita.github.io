@@ -23,7 +23,9 @@ jobs:
           ruby-version: 3.1
           bundler-cache: true
       - name: Install and Build
-        run: bundle exec jekyll build
+        run: |
+          export
+          JEKYLL_GITHUB_TOKEN=${GITHUB_TOKEN} bundle exec jekyll build
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
