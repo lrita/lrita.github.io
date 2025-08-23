@@ -25,7 +25,7 @@ jobs:
       - name: Install and Build
         run: |
           export
-          JEKYLL_GITHUB_TOKEN=${GITHUB_TOKEN} bundle exec jekyll build
+          JEKYLL_GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} bundle exec jekyll build
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
