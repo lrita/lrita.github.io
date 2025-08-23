@@ -24,7 +24,7 @@ jobs:
           bundler-cache: true
       - name: Install and Build
         run: |
-          export
+          pwd
           JEKYLL_GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} bundle exec jekyll build
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
